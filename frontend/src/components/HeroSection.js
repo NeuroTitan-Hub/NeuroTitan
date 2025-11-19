@@ -30,7 +30,7 @@ const HeroSection = () => {
             height='100%'
             style={{ 
               border: 'none',
-              pointerEvents: 'auto',
+              pointerEvents: 'auto', // Restore mouse interaction
               display: 'block',
               position: 'relative',
               overflow: 'hidden'
@@ -50,6 +50,18 @@ const HeroSection = () => {
             background: 'linear-gradient(to top, #000000 0%, #000000 60%, transparent 100%)',
             zIndex: 100,
             pointerEvents: 'none'
+          }} />
+          
+          {/* Click blocker for bottom half to prevent LinkedIn redirect */}
+          <div style={{
+            position: 'absolute',
+            bottom: '0',
+            left: '0',
+            width: '100%',
+            height: '50%',
+            zIndex: 99,
+            pointerEvents: 'auto',
+            cursor: 'default'
           }} />
         </motion.div>
       </div>
