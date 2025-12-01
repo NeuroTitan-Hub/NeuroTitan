@@ -1,7 +1,8 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion, useMotionValue, useSpring } from 'framer-motion';
 
 const MouseTracker = () => {
+  const [isMobile, setIsMobile] = useState(false);
   const cursorX = useMotionValue(-100);
   const cursorY = useMotionValue(-100);
 
@@ -10,6 +11,13 @@ const MouseTracker = () => {
   const cursorYSpring = useSpring(cursorY, springConfig);
 
   useEffect(() => {
+    // Check if mobile
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
     const moveCursor = (e) => {
       cursorX.set(e.clientX);
       cursorY.set(e.clientY);
@@ -19,8 +27,14 @@ const MouseTracker = () => {
 
     return () => {
       window.removeEventListener('mousemove', moveCursor);
+      window.removeEventListener('resize', checkMobile);
     };
   }, [cursorX, cursorY]);
+
+  // Don't render on mobile
+  if (isMobile) {
+    return null;
+  }
 
   return (
     <>

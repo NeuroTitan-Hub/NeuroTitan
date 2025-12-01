@@ -4,10 +4,76 @@
   width: 100%;
 }
 
+/* Smooth Scrolling */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-scrolling iframe {
+  pointer-events: none;
+}
+
 /* NeuroTitan Hub Styles */
 .neurotitan-hub {
   width: 100%;
   overflow-x: hidden;
+}
+
+/* Scroll-triggered animations */
+section {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+section.scroll-animate {
+  opacity: 0;
+  transform: translateY(50px);
+  transition: opacity 0.8s cubic-bezier(0.25, 0.1, 0.25, 1),
+              transform 0.8s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+section.scroll-animate.in-view {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Staggered animation for children */
+.stagger-item {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s cubic-bezier(0.25, 0.1, 0.25, 1),
+              transform 0.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.in-view .stagger-item {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.in-view .stagger-item:nth-child(1) { transition-delay: 0.1s; }
+.in-view .stagger-item:nth-child(2) { transition-delay: 0.2s; }
+.in-view .stagger-item:nth-child(3) { transition-delay: 0.3s; }
+.in-view .stagger-item:nth-child(4) { transition-delay: 0.4s; }
+.in-view .stagger-item:nth-child(5) { transition-delay: 0.5s; }
+.in-view .stagger-item:nth-child(6) { transition-delay: 0.6s; }
+
+/* Parallax effect */
+.parallax {
+  will-change: transform;
+  transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 /* Hero Section Animations */
@@ -29,6 +95,17 @@
   }
 }
 
+@keyframes pulse {
+  0%, 100% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
 @keyframes float {
   0%, 100% {
     transform: translateY(0);
@@ -38,7 +115,7 @@
   }
 }
 
-/* Card Hover Effects */
+/* Card Hover Effects with smooth transitions */
 .pillar-card,
 .pillar-card-new,
 .domain-card,
@@ -47,8 +124,10 @@
 .product-card-new,
 .platform-card,
 .testimonial-card {
-  transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+  transition: all 0.5s cubic-bezier(0.25, 0.1, 0.25, 1);
   cursor: pointer;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .pillar-card:hover,
@@ -56,7 +135,7 @@
 .product-card:hover,
 .product-card-new:hover,
 .platform-card:hover {
-  transform: translateY(-8px);
+  transform: translateY(-12px) scale(1.02);
 }
 
 /* Refined Typography */
@@ -100,15 +179,41 @@ p {
 
 /* Button Hover Effects */
 button, a {
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 button:hover, a:hover {
   filter: brightness(1.2);
+  transform: translateY(-2px);
 }
 
 /* Responsive Adjustments */
 @media (max-width: 768px) {
+  /* Disable heavy animations on mobile */
+  * {
+    animation-duration: 0.3s !important;
+    transition-duration: 0.2s !important;
+  }
+
+  /* Disable parallax and will-change on mobile */
+  .parallax {
+    transform: none !important;
+    will-change: auto !important;
+  }
+
+  /* Simplify hover effects */
+  button:hover, a:hover {
+    transform: none;
+  }
+
+  .pillar-card:hover,
+  .pillar-card-new:hover,
+  .product-card:hover,
+  .product-card-new:hover,
+  .platform-card:hover {
+    transform: none !important;
+  }
+
   .hero-section h1 {
     font-size: 3rem !important;
   }

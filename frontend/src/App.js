@@ -1,9 +1,13 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import './App.css';
+import 'lenis/dist/lenis.css';
 import NeuroTitanHub from './pages/NeuroTitanHub';
+import useLenis from './hooks/useLenis';
 
 function App() {
+  useLenis();
+
   return (
     <div className="App">
       <BrowserRouter>

@@ -1,8 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import MagneticButton from './MagneticButton';
 
 const HeroSection = () => {
   const [isMobile, setIsMobile] = useState(false);
+  const sectionRef = useRef(null);
+
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ["start start", "end start"]
+  });
+
+  // Disable parallax on mobile for performance
+  const y = useTransform(scrollYProgress, [0, 1], isMobile ? [0, 0] : [0, 200]);
+  const opacity = useTransform(scrollYProgress, [0, 0.5], isMobile ? [1, 1] : [1, 0]);
 
   useEffect(() => {
     const checkMobile = () => {
@@ -14,16 +25,21 @@ const HeroSection = () => {
   }, []);
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden" style={{ 
-      background: '#000000', 
-      touchAction: 'pan-y',
-      WebkitBackfaceVisibility: 'hidden',
-      backfaceVisibility: 'hidden',
-      WebkitPerspective: 1000,
-      perspective: 1000,
-      willChange: 'transform',
-      transform: 'translateZ(0)'
-    }}>
+    <motion.section 
+      ref={sectionRef}
+      className="relative min-h-screen flex items-center justify-center overflow-hidden" 
+      style={{ 
+        y: isMobile ? 0 : y, 
+        opacity: isMobile ? 1 : opacity,
+        background: '#000000', 
+        touchAction: 'pan-y',
+        WebkitBackfaceVisibility: 'hidden',
+        backfaceVisibility: 'hidden',
+        WebkitPerspective: 1000,
+        perspective: 1000,
+        willChange: 'transform',
+        transform: 'translateZ(0)'
+      }}>
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 opacity-[0.015]" style={{ 
           backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.5) 1px, transparent 1px)', 
@@ -33,87 +49,99 @@ const HeroSection = () => {
         }} />
       </div>
 
-      {/* Spline 3D Boxes - Interactive & Responsive */}
-      <div className="absolute inset-0 flex items-center justify-center" style={{ 
-        zIndex: 1,
-        transform: 'translateZ(0)',
-        willChange: 'transform'
-      }}>
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.98 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ 
-            duration: isMobile ? 0.8 : 1, 
-            ease: [0.25, 0.1, 0.25, 1],
-            opacity: { duration: isMobile ? 0.6 : 0.8 }
-          }}
-          style={{ 
-            width: '100%',
-            height: '100%',
-            maxWidth: '900px',
-            maxHeight: '900px',
-            filter: 'brightness(0.8) saturate(0.7)',
-            position: 'relative',
-            transform: 'translateZ(0)',
-            WebkitTransform: 'translateZ(0)',
-            willChange: 'opacity, transform'
-          }}
-        >
-          <iframe 
-            src='https://my.spline.design/boxeshover-yJ6IQoM9vPsJSmSBejlKsVUV/' 
-            frameBorder='0' 
-            width='100%' 
-            height='100%'
-            style={{ 
-              border: 'none',
-              pointerEvents: 'auto',
-              display: 'block',
-              position: 'relative',
-              overflow: 'hidden',
-              touchAction: 'pan-y',
-              transform: 'translate3d(0, 0, 0)',
-              WebkitTransform: 'translate3d(0, 0, 0)',
-              backfaceVisibility: 'hidden',
-              WebkitBackfaceVisibility: 'hidden',
-              willChange: 'transform'
+      {/* Spline 3D Boxes - Desktop Only */}
+      {!isMobile && (
+        <div className="absolute inset-0 flex items-center justify-center" style={{ 
+          zIndex: 1,
+          transform: 'translateZ(0)',
+          willChange: 'transform'
+        }}>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ 
+              duration: 1, 
+              ease: [0.25, 0.1, 0.25, 1],
+              opacity: { duration: 0.8 }
             }}
-            title="3D Boxes Animation"
-            loading="eager"
-            allowFullScreen
-          />
-          
-          {/* Complete bottom overlay to hide all watermarks */}
-          <div style={{
-            position: 'absolute',
-            bottom: '0',
-            left: '0',
-            width: '100%',
-            height: '120px',
-            background: 'linear-gradient(to top, #000000 0%, #000000 60%, transparent 100%)',
-            zIndex: 100,
-            pointerEvents: 'none',
-            transform: 'translateZ(0)',
-            willChange: 'opacity'
-          }} />
-          
-          {/* Click blocker to prevent LinkedIn redirect */}
-          <div style={{
-            position: 'absolute',
-            bottom: '0',
-            left: '0',
-            width: '100%',
-            height: '60%',
-            zIndex: 99,
-            pointerEvents: 'auto',
-            cursor: 'default',
-            touchAction: 'pan-y',
-            transform: 'translateZ(0)',
-            backfaceVisibility: 'hidden'
-          }} />
-        </motion.div>
-      </div>
+            style={{ 
+              width: '100%',
+              height: '100%',
+              filter: 'brightness(0.8) saturate(0.7)',
+              position: 'relative',
+              transform: 'translateZ(0)',
+              WebkitTransform: 'translateZ(0)',
+              willChange: 'opacity, transform'
+            }}
+          >
+            <iframe 
+              src='https://my.spline.design/boxeshover-yJ6IQoM9vPsJSmSBejlKsVUV/' 
+              frameBorder='0' 
+              width='100%' 
+              height='100%'
+              style={{ 
+                border: 'none',
+                pointerEvents: 'auto',
+                display: 'block',
+                position: 'relative',
+                overflow: 'hidden',
+                touchAction: 'pan-y',
+                transform: 'translate3d(0, 0, 0)',
+                WebkitTransform: 'translate3d(0, 0, 0)',
+                backfaceVisibility: 'hidden',
+                WebkitBackfaceVisibility: 'hidden',
+                willChange: 'transform'
+              }}
+              title="3D Boxes Animation"
+              loading="eager"
+              allowFullScreen
+            />
+            
+            {/* Complete bottom overlay to hide all watermarks */}
+            <div style={{
+              position: 'absolute',
+              bottom: '0',
+              left: '0',
+              width: '100%',
+              height: '120px',
+              background: 'linear-gradient(to top, #000000 0%, #000000 60%, transparent 100%)',
+              zIndex: 100,
+              pointerEvents: 'none',
+              transform: 'translateZ(0)',
+              willChange: 'opacity'
+            }} />
+            
+            {/* Click blocker to prevent LinkedIn redirect */}
+            <div style={{
+              position: 'absolute',
+              bottom: '0',
+              left: '0',
+              width: '100%',
+              height: '60%',
+              zIndex: 99,
+              pointerEvents: 'auto',
+              cursor: 'default',
+              touchAction: 'pan-y',
+              transform: 'translateZ(0)',
+              backfaceVisibility: 'hidden'
+            }} />
+          </motion.div>
+        </div>
+      )}
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 text-center" style={{ 
+      {/* Mobile: Simple animated gradient background */}
+      {isMobile && (
+        <div className="absolute inset-0" style={{ zIndex: 1 }}>
+          <div style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'radial-gradient(circle at 50% 50%, rgba(138, 43, 226, 0.15) 0%, transparent 70%)',
+            animation: 'pulse 4s ease-in-out infinite'
+          }} />
+        </div>
+      )}
+
+      <div className="relative z-10 w-full px-4 md:px-6 text-center" style={{ 
         position: 'relative', 
         zIndex: 10, 
         pointerEvents: 'none',
@@ -121,20 +149,20 @@ const HeroSection = () => {
         willChange: 'transform'
       }}>
         <motion.div 
-          initial={{ opacity: 0, y: 15 }} 
+          initial={isMobile ? { opacity: 1, y: 0 } : { opacity: 0, y: 15 }} 
           animate={{ opacity: 1, y: 0 }} 
           transition={{ 
-            duration: isMobile ? 0.5 : 0.7, 
-            delay: isMobile ? 0.05 : 0.1,
+            duration: isMobile ? 0.3 : 0.7, 
+            delay: isMobile ? 0 : 0.1,
             ease: [0.25, 0.1, 0.25, 1]
           }} 
           className="mb-6 md:mb-8">
           <motion.div 
-            initial={{ opacity: 0 }} 
+            initial={isMobile ? { opacity: 1 } : { opacity: 0 }} 
             animate={{ opacity: 1 }} 
             transition={{ 
-              duration: isMobile ? 0.4 : 0.5, 
-              delay: isMobile ? 0.1 : 0.2,
+              duration: isMobile ? 0.2 : 0.5, 
+              delay: isMobile ? 0 : 0.2,
               ease: "easeOut"
             }} 
             className="inline-block mb-4 md:mb-6 px-4 md:px-6 py-2"
@@ -153,7 +181,7 @@ const HeroSection = () => {
             NeuroTitan
           </h1>
           
-          <p className="text-base sm:text-lg md:text-2xl lg:text-3xl mb-8 md:mb-12 max-w-4xl mx-auto leading-relaxed px-2" style={{ 
+          <p className="text-base sm:text-lg md:text-2xl lg:text-3xl mb-8 md:mb-12 leading-relaxed px-2 mx-auto" style={{ 
             fontFamily: 'Montserrat, sans-serif', 
             color: '#B8B8B8',
             transform: 'translateZ(0)',
@@ -163,11 +191,11 @@ const HeroSection = () => {
           </p>
 
           <motion.div 
-            initial={{ opacity: 0, y: 15 }} 
+            initial={isMobile ? { opacity: 1, y: 0 } : { opacity: 0, y: 15 }} 
             animate={{ opacity: 1, y: 0 }} 
             transition={{ 
-              duration: isMobile ? 0.4 : 0.5, 
-              delay: isMobile ? 0.15 : 0.3,
+              duration: isMobile ? 0.2 : 0.5, 
+              delay: isMobile ? 0 : 0.3,
               ease: [0.25, 0.1, 0.25, 1]
             }} 
             className="flex flex-col sm:flex-row flex-wrap gap-3 sm:gap-4 md:gap-6 justify-center items-center" 
@@ -230,11 +258,11 @@ const HeroSection = () => {
         </motion.div>
 
         <motion.div 
-          initial={{ opacity: 0 }} 
+          initial={isMobile ? { opacity: 1 } : { opacity: 0 }} 
           animate={{ opacity: 1 }} 
           transition={{ 
-            duration: isMobile ? 0.5 : 0.6, 
-            delay: isMobile ? 0.2 : 0.4,
+            duration: isMobile ? 0.2 : 0.6, 
+            delay: isMobile ? 0 : 0.4,
             ease: "easeOut"
           }} 
           className="mt-12 md:mt-20"
@@ -267,7 +295,7 @@ const HeroSection = () => {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
         </svg>
       </div>
-    </section>
+    </motion.section>
   );
 };
 

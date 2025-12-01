@@ -8,12 +8,22 @@ import ProductsSection from '../components/ProductsSection';
 import CommunitySection from '../components/CommunitySection';
 import ContactFooter from '../components/ContactFooter';
 import MouseTracker from '../components/MouseTracker';
+import ScrollProgress from '../components/ScrollProgress';
+// import CustomCursor from '../components/CustomCursor'; // Uncomment for custom cursor
 
 const NeuroTitanHub = () => {
   return (
-    <div className="neurotitan-hub" data-testid="neurotitan-hub" style={{ position: 'relative' }}>
+    <div className="neurotitan-hub scroll-smooth" data-testid="neurotitan-hub" style={{ position: 'relative' }}>
+      <ScrollProgress />
+      {/* <CustomCursor /> */} {/* Uncomment for custom cursor effect */}
       <MouseTracker />
-      <HeroSection />
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <HeroSection />
+      </motion.div>
       <AboutSection />
       <EcosystemSection />
       <ResearchLabSection />
