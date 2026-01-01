@@ -6,6 +6,15 @@ import '../styles/Semiconductor.css';
 
 gsap.registerPlugin(ScrollTrigger);
 
+/* ========================
+   UTILITY FUNCTIONS
+======================== */
+
+// Get current year for copyright
+const getCurrentYear = () => {
+  return new Date().getFullYear();
+};
+
 const SemiconductorPage = () => {
   const containerRef = useRef(null);
 
@@ -551,7 +560,7 @@ const SemiconductorPage = () => {
           {/* Bottom Info */}
           <div className="footer-bottom">
             <p className="footer-copyright">
-              © 2026 NeuroTitan. All rights reserved.
+              © {getCurrentYear()} NeuroTitan. All rights reserved.
             </p>
             <p className="footer-tagline">
               PRECISION ENGINEERING · SILICON INNOVATION · NANOSCALE ARCHITECTURE
