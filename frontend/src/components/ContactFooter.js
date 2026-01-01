@@ -4,6 +4,11 @@ import { Mail, Linkedin, Instagram } from 'lucide-react';
 import { FaQuora, FaPinterest } from 'react-icons/fa';
 import { useRef } from 'react';
 
+// Get current year for copyright
+const getCurrentYear = () => {
+  return new Date().getFullYear();
+};
+
 const ContactFooter = () => {
   const sectionRef = useRef(null);
   const { scrollYProgress } = useScroll({
@@ -271,7 +276,7 @@ const ContactFooter = () => {
             className="text-center pt-8" 
             style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}
           >
-            <p className="text-sm mb-3" style={{ fontFamily: 'Montserrat, sans-serif', color: '#4A4A4A' }}>© 2024 NeuroTitan. All rights reserved. Built with precision.</p>
+            <p className="text-sm mb-3" style={{ fontFamily: 'Montserrat, sans-serif', color: '#4A4A4A' }}>© {getCurrentYear()} NeuroTitan. All rights reserved. Built with precision.</p>
             
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
