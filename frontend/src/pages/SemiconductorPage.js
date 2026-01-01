@@ -26,6 +26,133 @@ const SemiconductorPage = () => {
         }
       });
 
+      // 3D INTERACTIVE SECTION: Model & Cards Animation
+      gsap.timeline({
+        scrollTrigger: {
+          trigger: '.interactive-3d-section',
+          start: 'top 70%',
+          end: '+=100%',
+          scrub: 1.2
+        }
+      })
+      .from('.model-container', {
+        opacity: 0,
+        scale: 0.9,
+        y: 40,
+        duration: 1
+      }, 0)
+      .from('.subsection-card', {
+        opacity: 0,
+        y: 30,
+        stagger: 0.15,
+        duration: 0.8
+      }, 0.2);
+
+      // Interactive 3D Section Title Animation
+      gsap.from('.interactive-3d-section .section-title', {
+        opacity: 0,
+        y: 20,
+        duration: 0.8,
+        delay: 0.3,
+        scrollTrigger: {
+          trigger: '.interactive-3d-section',
+          start: 'top 75%',
+          toggleActions: 'play none none none'
+        }
+      });
+
+      // Subsection Cards Hover Animations (with mouse tracking)
+      const cards = gsap.utils.toArray('.subsection-card');
+      cards.forEach(card => {
+        card.addEventListener('mouseenter', () => {
+          gsap.to(card, {
+            y: -10,
+            duration: 0.4,
+            overwrite: 'auto'
+          });
+        });
+        
+        card.addEventListener('mouseleave', () => {
+          gsap.to(card, {
+            y: 0,
+            duration: 0.4,
+            overwrite: 'auto'
+          });
+        });
+      });
+
+      // Model Container Hover Effect with Rotation
+      const modelContainer = document.querySelector('.model-container');
+      if (modelContainer) {
+        modelContainer.addEventListener('mouseenter', () => {
+          gsap.to(modelContainer, {
+            boxShadow: '0 16px 48px rgba(193, 18, 31, 0.3)',
+            duration: 0.4
+          });
+        });
+        
+        modelContainer.addEventListener('mouseleave', () => {
+          gsap.to(modelContainer, {
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+            duration: 0.4
+          });
+        });
+      }
+
+      // Parallax effect for subsection cards on scroll
+      gsap.to('.subsection-card', {
+        y: (i) => i * -10,
+        scrollTrigger: {
+          trigger: '.interactive-3d-section',
+          start: 'top center',
+          end: 'bottom center',
+          scrub: 0.5
+        }
+      });
+
+      // ARDUINO MODEL SECTION: Fade & Scale Animation
+      gsap.from('.arduino-model-section .model-container', {
+        opacity: 0,
+        scale: 0.9,
+        y: 50,
+        duration: 1,
+        scrollTrigger: {
+          trigger: '.arduino-model-section',
+          start: 'top 70%',
+          scrub: 1
+        }
+      });
+
+      // Arduino Section Title Animation
+      gsap.from('.arduino-model-section .section-title', {
+        opacity: 0,
+        y: 30,
+        duration: 0.8,
+        scrollTrigger: {
+          trigger: '.arduino-model-section',
+          start: 'top 75%',
+          toggleActions: 'play none none none'
+        }
+      });
+
+      // Arduino Model Container Hover Effect
+      const arduinoModelContainer = document.querySelector('.arduino-model-section .model-container');
+      if (arduinoModelContainer) {
+        arduinoModelContainer.addEventListener('mouseenter', () => {
+          gsap.to(arduinoModelContainer, {
+            boxShadow: '0 16px 48px rgba(193, 18, 31, 0.3)',
+            duration: 0.4
+          });
+        });
+        
+        arduinoModelContainer.addEventListener('mouseleave', () => {
+          gsap.to(arduinoModelContainer, {
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+            duration: 0.4
+          });
+        });
+      }
+
       // WAFER SECTION: Parallax, Not Entrance
       gsap.timeline({
         scrollTrigger: {
@@ -107,6 +234,94 @@ const SemiconductorPage = () => {
           SEMICONDUCTOR
           <span>ARCHITECTURE</span>
         </h1>
+      </section>
+
+      {/* 3D Interactive Feature Section */}
+      <section className="semiconductor-section interactive-3d-section">
+        <div className="section-content">
+          <h2 className="section-title">3D INTERACTIVE FEATURE</h2>
+          <p className="section-subtitle">Embedded Sketchfab 3D Model (Rotatable, Zoomable)</p>
+          
+          <div className="model-container">
+            <iframe
+              title="Arduino Uno Board"
+              className="sketchfab-embed-3d"
+              src="https://sketchfab.com/models/5e4c4717393e4431890a0e40d0482aa3/embed?autostart=1&ui_controls=1&ui_infos=0&ui_stop=0"
+              allow="autoplay; fullscreen; xr-spatial-tracking"
+              allowFullScreen
+            />
+          </div>
+          
+          <p className="section-description">
+            An example of how semiconductors power real electronic systems. Explore this Arduino board to see how multiple semiconductor components work together: microcontrollers, voltage regulators, memory ICs, and discrete transistors.
+          </p>
+        </div>
+
+        {/* Subsections: What, Why, Research, Trends */}
+        <div className="subsections-grid">
+          
+          {/* What Are Semiconductors */}
+          <div className="subsection-card">
+            <h3 className="subsection-title">What Are Semiconductors?</h3>
+            <p className="subsection-text">
+              Semiconductors are materials whose electrical conductivity can be precisely controlled, enabling logic, memory, sensing, and power regulation in electronic devices.
+            </p>
+          </div>
+
+          {/* Why Semiconductors Matter */}
+          <div className="subsection-card">
+            <h3 className="subsection-title">Why Semiconductors Matter</h3>
+            <p className="subsection-text">
+              Every modern system—computing, communication, energy—relies on semiconductor devices operating at nanometer scales to process information and control power.
+            </p>
+          </div>
+
+          {/* Core Research Areas */}
+          <div className="subsection-card">
+            <h3 className="subsection-title">Core Research Areas</h3>
+            <ul className="subsection-list">
+              <li>Advanced transistor architectures</li>
+              <li>Sub-5nm fabrication processes</li>
+              <li>Novel semiconductor materials</li>
+              <li>Energy-efficient computing</li>
+            </ul>
+          </div>
+
+          {/* Current Trends & Innovation */}
+          <div className="subsection-card">
+            <h3 className="subsection-title">Current Trends & Innovation</h3>
+            <ul className="subsection-list">
+              <li>Chiplet-based design strategies</li>
+              <li>AI and ML accelerators</li>
+              <li>Heterogeneous integration</li>
+            </ul>
+          </div>
+
+        </div>
+      </section>
+
+      {/* Alternative Arduino Model Section */}
+      <section className="semiconductor-section arduino-model-section">
+        <div className="section-content">
+          <h2 className="section-title">ARDUINO ECOSYSTEM</h2>
+          <p className="section-subtitle">Alternative Board Configuration (Rotatable, Zoomable)</p>
+          
+          <div className="model-container">
+            <iframe
+              title="Arduino Uno Board Alternative"
+              className="sketchfab-embed-3d"
+              src="https://sketchfab.com/models/f31feafc5e9743abbdf33c54f9d92669/embed?autostart=1&ui_controls=1&ui_infos=0&ui_stop=0"
+              allow="autoplay; fullscreen; xr-spatial-tracking"
+              allowFullScreen
+            />
+          </div>
+          
+          <p className="section-description">
+            The Arduino UNO Q is the latest innovation in the Arduino platform, developed in partnership with Qualcomm, bringing a new level of performance and connectivity. Unlike the traditional Arduino Uno, which uses only one microcontroller, the UNO Q combines two processors: an STM32 microcontroller for control and sensor tasks, and a Qualcomm QRB2210 processor, capable of running Linux, Artificial Intelligence and computer vision.
+            <br /><br />
+            This fusion of simplicity and processing power transforms the Arduino UNO Q into a versatile tool for advanced robotics, the Internet of Things (IoT), and innovative educational projects, while maintaining compatibility with the classic ecosystem of shields and sensors. With 5 GHz Wi-Fi connectivity, Bluetooth 5.1, and Python and C/C++ support, the UNO Q inaugurates a new generation of smarter, connected and future-proof Arduino boards for automation and technology education.
+          </p>
+        </div>
       </section>
 
       {/* Wafer Section */}
@@ -280,18 +495,69 @@ const SemiconductorPage = () => {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* Comprehensive Footer */}
       <section className="semiconductor-section footer-section">
         <div className="footer-content">
-          <div className="footer-line"></div>
-          <p className="footer-text">
-            PRECISION ENGINEERING · SILICON INNOVATION · NANOSCALE ARCHITECTURE
-          </p>
-          <div className="footer-coordinates">
-            <span>37.7749°N</span>
-            <span className="coord-separator">×</span>
-            <span>122.4194°W</span>
+          
+          {/* Site Purpose */}
+          <div className="footer-section-block">
+            <h3 className="footer-title">NEUROTITAN SEMICONDUCTOR HUB</h3>
+            <p className="footer-description">
+              An educational platform dedicated to exploring semiconductor technology, microarchitecture, and embedded systems. We bridge the gap between complex semiconductor concepts and practical applications through interactive 3D models and comprehensive documentation.
+            </p>
           </div>
+
+          {/* Reference Links */}
+          <div className="footer-section-block">
+            <h4 className="footer-heading">REFERENCE LINKS</h4>
+            <ul className="footer-links">
+              <li><a href="https://sketchfab.com" target="_blank" rel="noopener noreferrer">Sketchfab 3D Models</a></li>
+              <li><a href="https://www.arduino.cc" target="_blank" rel="noopener noreferrer">Arduino Official</a></li>
+              <li><a href="https://www.qualcomm.com" target="_blank" rel="noopener noreferrer">Qualcomm Technologies</a></li>
+              <li><a href="https://gsap.com" target="_blank" rel="noopener noreferrer">GSAP Animation Library</a></li>
+            </ul>
+          </div>
+
+          {/* Credits & Sources */}
+          <div className="footer-section-block">
+            <h4 className="footer-heading">CREDITS & SOURCES</h4>
+            <ul className="footer-credits">
+              <li><strong>3D Models:</strong> Sketchfab Community (Arduino UNO Board)</li>
+              <li><strong>Framework:</strong> React.js, GSAP, Three.js</li>
+              <li><strong>Design Inspiration:</strong> Apple Silicon, NVIDIA Architecture</li>
+              <li><strong>Partner Technology:</strong> Qualcomm QRB2210 Processor</li>
+            </ul>
+          </div>
+
+          {/* Contact & Feedback */}
+          <div className="footer-section-block">
+            <h4 className="footer-heading">FEEDBACK & CONTACT</h4>
+            <p className="footer-contact-text">
+              Have questions or suggestions? We'd love to hear from you.
+            </p>
+            <div className="footer-buttons">
+              <a href="mailto:feedback@neurotitan.dev" className="footer-btn feedback-btn">
+                📧 Send Feedback
+              </a>
+              <a href="https://github.com/AkshitTiwarii/NeuroTitan" target="_blank" rel="noopener noreferrer" className="footer-btn github-btn">
+                🔗 GitHub Repository
+              </a>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div className="footer-divider"></div>
+
+          {/* Bottom Info */}
+          <div className="footer-bottom">
+            <p className="footer-copyright">
+              © 2026 NeuroTitan. All rights reserved.
+            </p>
+            <p className="footer-tagline">
+              PRECISION ENGINEERING · SILICON INNOVATION · NANOSCALE ARCHITECTURE
+            </p>
+          </div>
+
         </div>
       </section>
     </div>
