@@ -25,13 +25,13 @@ This post follows that one sentence all the way down. First into tokens, the pie
 4. Transistor-level circuit simulation on the open sky130 process: arithmetic and memory, including chip-to-chip variation.
 5. The charge that flows through the supply.
 
-Every formula is derived in the text, and every number traces to open code and data.
+Finally, we measure real GPU energy on a laptop for 18 languages. Every formula is derived in the text, and every number traces to open code and data.
 
 **Findings.** On Qwen3, Odia needs 9.70 times English's tokens and 9.86 times its arithmetic. A model built only from counted memory traffic puts Deng et al.'s 117 languages in the right order (rank correlation 0.94) but makes the gaps too large for 114 of 116 of them. On a server shared by many users, the energy gap grows faster than the token gap: it lies between the token ratio $r$ and $r^2$, and reaches 16.5× for a page of Odia. On silicon, the arithmetic is cheapest at 0.6 to 0.7 V, about 10 times cheaper than at 1.8 V, but minimum-size memory cells need about 1 V or more to work.
 
 **What is new.** No single layer here is new. The contribution is the chain itself: open, end to end, every step derived, simulated or measured, and labelled as which. Along the way it yields a closed-form law for how the language gap grows on shared servers.
 
-**What is not yet verified.** Every energy figure is derived or simulated. None is our own measurement on hardware yet; that work has started.
+**First hardware measurement.** On a laptop GPU, with a smaller model of a different design, energy followed the token count almost one to one across 18 languages (slope 0.997 on log scales), and energy per generated token did not grow with context. That confirms the single-user case of our model. The shared-server mechanism and Qwen3-8B's absolute energies remain unverified.
 
 ## Key results
 
@@ -44,6 +44,7 @@ Every formula is derived in the text, and every number traces to open code and d
 | 5 | Arithmetic on sky130 is cheapest at 0.6 to 0.7 V once chip-to-chip variation is counted, about 10× below 1.8 V | simulated |
 | 6 | Minimum-size SRAM needs about 1 V on the typical corner and 1.4 to 1.8 V on every corner, so the low-voltage saving applies to arithmetic, not memory | simulated |
 | 7 | One English sentence moves $8.8 \times 10^{17}$ electrons of charge through a sky130 chip's supply at 1.8 V; the Odia version moves $8.7 \times 10^{18}$ | derived from simulated energy |
+| 8 | On a real laptop GPU, energy follows tokens almost one to one across 18 languages (slope 0.997), and energy per generated token does not grow with context, for one user | measured, on a smaller model of a different design |
 
 ## At a glance
 
@@ -79,7 +80,7 @@ Every formula is derived in the text, and every number traces to open code and d
 | Time | For | Read |
 |---|---|---|
 | 5 minutes | Anyone | The [abstract](#abstract), the [key results](#key-results), the picture above, and [what did we actually learn?](#what-did-we-actually-learn) |
-| 15 minutes | ML and systems readers | Add [1. Words to tokens](#1-words-to-tokens), [2. Tokens to arithmetic](#2-tokens-to-arithmetic), [3. Arithmetic to a server's clock](#3-arithmetic-to-a-servers-clock) and [8. The whole chain](#8-the-whole-chain-one-sentence-two-languages) |
+| 15 minutes | ML and systems readers | Add [1. Words to tokens](#1-words-to-tokens), [2. Tokens to arithmetic](#2-tokens-to-arithmetic), [3. Arithmetic to a server's clock](#3-arithmetic-to-a-servers-clock) [8. The whole chain](#8-the-whole-chain-one-sentence-two-languages) and [9. A first measurement on real hardware](#9-a-first-measurement-on-real-hardware) |
 | The full post | Circuits, semiconductor and physics readers | Everything, including the derivations in [4](#4-a-capacitor-charged) to [7](#7-real-chips-are-not-all-alike) |
 
 Every section opens with **In plain words**: the idea without any symbols. The detail follows.
@@ -299,7 +300,7 @@ The prediction is the formula above. Their energy readings are used only to scor
 
 *Takeaway: counted memory traffic puts the languages in the right order, but predicts gaps that are too large for almost every one of them.*
 
-Over the 117 languages both datasets share, the rank correlation (section 9) is 0.94.
+Over the 117 languages both datasets share, the rank correlation (section 10) is 0.94.
 
 **What that does and does not show.** The theorem above already tells you the catch: in case 1 the model reduces to "cost per token ∝ context". And mean context alone ranks the languages exactly as well, 0.94.
 
@@ -659,7 +660,75 @@ Since $0 \le s \le 1$, $G$ lies between $r$ and $r^2$.
 
 *Takeaway: on a shared server, the energy gap between languages grows faster than the token gap, toward its square.*
 
-## 9. Statistics we used
+## 9. A first measurement on real hardware
+
+**In plain words.** Everything above is calculation or simulation, so we measured. On a laptop GPU, we gave a language model the same 20 sentences in 18 languages, asked it to copy them back, and recorded the GPU's power ten times a second. Energy followed the token count almost exactly: a language that needed four times the tokens used about four times the energy. And each generated token cost about the same whatever the language and however long the text. That is what our formulas predict for one user alone.
+
+**Setup** [measured].
+
+| | |
+|---|---|
+| GPU | NVIDIA GeForce RTX 4060 Laptop GPU, 8 GB |
+| Power reading | Board power from nvidia-smi (`power.draw.instant`) every 100 ms. NVIDIA gives these readings as accurate to ±5 W |
+| Model | A 4-bit fine-tune of Qwen3.5-4B, served by Ollama 0.31.2, entirely in GPU memory |
+| Text | The first 20 FLORES-200 devtest sentences in each of 18 languages |
+| Tasks | **copy**: "Copy the following text exactly", so the answer is as long as the text and in the same language. **read**: "Reply with only the word OK", which isolates the cost of reading the prompt |
+| Controls | Temperature 0. A unique request number at the start of every prompt, so no request reuses cached work from another. Language order shuffled in each repeat |
+
+This is not the model of sections 2 and 3: Qwen3-8B needs about 16 GB, which this GPU does not have. The model here also differs in design. Only 8 of its 32 main layers keep a KV cache that grows with every token; the other 24 keep a fixed-size state. So this run tests what does not depend on that difference.
+
+**Energy of one request** [derived from measured power]. With power samples $P(t_i)$ every 100 ms, the energy of a request from $t_0$ to $t_1$ is the trapezoid sum
+
+$$
+E = \sum_i \frac{P(t_i) + P(t_{i+1})}{2}\,(t_{i+1} - t_i)
+$$
+
+over the samples between $t_0$ and $t_1$. Splitting the sum at the first generated token gives the energy of reading the prompt and of writing the answer.
+
+**What went wrong, and how we handled it.** The laptop's charger came out 26 minutes into the run. The GPU dropped from about 88 W to about 42 W while copying, and ran about a third slower. We analyse only the requests that finished before the switch: 34 copies, covering all 18 languages, 16 of them twice. The requests made on battery are kept separate, as a check, and never mixed in. Even while plugged in, the laptop changed power state once more. As a result, 6 of the 16 languages with two repeats agree within 5%, but 10 differ by more than 15%. The numbers below are means, and a controlled rerun is planned.
+
+**Results, plugged in** [measured].
+
+| Language | Tokens read | Token ratio | Energy per request | Energy ratio | Energy per generated token |
+|---|---|---|---|---|---|
+| English | 728 | 1.00 | 1.08 kJ | 1.00 | 1.47 J |
+| Chinese (Simplified) | 734 | 1.01 | 1.25 kJ | 1.16 | 1.71 J |
+| Hindi | 1,450 | 1.99 | 2.27 kJ | 2.11 | 1.55 J |
+| Tamil | 1,960 | 2.69 | 2.72 kJ | 2.53 | 1.37 J |
+| Burmese | 2,374 | 3.26 | 4.30 kJ | 3.99 | 1.79 J |
+| Odia | 2,778 | 3.81 | 4.48 kJ | 4.16 | 1.59 J |
+| Amharic | 2,940 | 4.04 | 5.40 kJ | 5.02 | 1.82 J |
+| Khmer | 3,944 | 5.41 | 6.90 kJ | 6.41 | 1.85 J |
+| Shan | 5,604 | 7.69 | 8.46 kJ | 7.86 | 1.69 J |
+
+Nine of the 18 languages are shown; the rest are in the [code and data](https://github.com/NeuroTitan-Hub/sentence-cost-in-electrons).
+
+- **Energy against tokens.** Across all 18 languages, the slope of log energy ratio against log token ratio is 0.997, and the rank correlation is 0.94.
+- **Per generated token.** Energy ranges from 1.32 to 1.98 J. A straight-line fit against context length has slope $(1.8 \pm 2.4) \times 10^{-5}$ J per token of context ($R^2 = 0.03$): no measurable growth over 1,000 to 8,000 tokens.
+- **Per token read.** About 32 mJ per prompt token of board energy (±4 mJ, $R^2 = 0.67$), or 25 mJ above idle. So writing a token costs about 50 times more than reading one.
+
+![GPU power over time for one English and one Odia copy request, plugged in. Both start with a short low-power stretch, then the prompt is read in under a second and the answer is written at a steady 100 to 105 W. English finishes after 11 seconds, Odia after 43.](/blog/sentence-cost-in-electrons/fig-8-telemetry.svg)
+
+*Takeaway: the GPU draws about the same power whatever the language. Odia costs more because the same text takes four times as long to write.*
+
+![Measured energy ratio against token ratio for 18 languages on log axes, plugged in. The points lie close to the line where the energy ratio equals the token ratio, from English at 1 to Shan at about 7.8.](/blog/sentence-cost-in-electrons/fig-9-measured-gap.svg)
+
+*Takeaway: measured on hardware, energy follows the token count almost one to one for a single user.*
+
+![Energy per generated token against mean context length for 18 languages, plugged in. All points lie between 1.3 and 2.0 J with no upward trend from about 1,000 to 8,000 tokens.](/blog/sentence-cost-in-electrons/fig-10-per-token.svg)
+
+*Takeaway: for one user on this model, a generated token costs the same whether the text so far is short or long.*
+
+**What this confirms, and what it does not.**
+
+- **Confirmed on hardware: energy follows tokens for one user.** Section 8's theorem gives $G = r$ when the context-dependent share $s$ is near zero. One user alone, on a model where only a quarter of the layers keep a growing cache, is that case. The measured slope is 0.997.
+- **Confirmed: the tokenizer is a lever.** The same Odia text costs 3.81× English's tokens on this model's tokenizer (248,320 entries), against 9.70× on Qwen3's. The energy gap shrinks with it.
+- **Consistent with our explanation, but not proof of it.** Deng et al. measured per-token energy varying up to 8.3× between languages on a busy server. Here, with one user, per-token energy hardly varies. That fits the claim that the per-token gap comes from batching and memory on a shared server rather than from the language itself. But this is a different model, so it supports the claim without proving it.
+- **Not tested.** Batching and memory pressure (we sent one request at a time), Qwen3-8B itself, and absolute energies for any server.
+- **The battery runs as a check.** The 20 battery-powered copies show the same pattern: rank correlation 0.99, slope 0.92. Each request used about 23% less energy, at about two-thirds of the speed. That is in the direction section 5 predicts for lower clock and voltage, but we did not measure voltage, so we claim nothing more.
+- **Caveats.** Board power only, not CPU or memory. Two repeats, with the spread described above. For Shan, the model did not copy faithfully: it wrote 16% more characters than it was given. Its per-token energy is still valid; its total is less clean.
+
+## 10. Statistics we used
 
 **In plain words.** Two tools carry the statistics. A rank correlation asks only whether two lists put the languages in the same order. A bootstrap estimates how much a result would change with a different sample of sentences.
 
@@ -679,8 +748,7 @@ where $d_i$ is the difference between language $i$'s predicted and measured rank
 
 - Token counts for 204 languages on 8 tokenizers.
 - The length of the English Belebele prompt: 220 tokens.
-
-That is all we measured directly.
+- GPU energy per request, per token read and per token generated, for 18 languages on a laptop GPU (section 9), with a model smaller than and different from Qwen3-8B.
 
 **Measured by others, used here.**
 
@@ -702,19 +770,20 @@ That is all we measured directly.
 **Predicted by our model and checked against measurement.**
 
 - The order of languages by energy per token: rank correlation 0.94 with Deng et al.
+- For one user, energy follows the token count: measured slope 0.997 on our own GPU.
 
 **Predicted but not yet verified.**
 
 - Absolute energy per language: our model over-predicts 114 of 116 languages.
 - Whether memory pressure on batch size is really what drives the gap.
-- How energy splits between reading the prompt and writing the answer.
+- How energy splits between reading and writing on a server. On our laptop GPU, a generated token cost about 50 times a token read.
 - Anything about modern chips, or about temperatures other than 27 °C.
 
-**Next.** We are measuring energy per language on a real GPU: joules, watts, latency and memory, prompt and answer separately. The results will be added here with a dated update, whether or not they agree with the model.
+**Next.** A controlled rerun with the laptop's power mode held fixed and more repeats, several requests at once to test the batching mechanism directly, and, with more GPU memory, Qwen3-8B itself.
 
 ## Limitations
 
-- **No hardware measurement yet.** Every energy number is derived, simulated, or measured by others.
+- **One small hardware measurement.** Section 9 is a single laptop GPU, a 4-bit model smaller than Qwen3-8B and of a different design, one request at a time, and at most two repeats per language with a 5 to 47% spread. Every other energy number is derived, simulated, or measured by others.
 - **One process, one temperature.** 130 nm open silicon at 27 °C. Chips run hotter, and leakage grows quickly with temperature. Our memory figures are published ones from 2014 to 2020; we make no claim about 4 to 5 nm chips.
 - **Floors, not totals.** Our multiply-add and SRAM numbers leave out gates, wires, decoders, sense amplifiers and control. The 8-bit circuit stands in for 16-bit floating-point arithmetic (section 8).
 - **Prompt lengths are scaled, not measured.** We measured the English Belebele prompt only; other languages are scaled by our FLORES ratio.
@@ -731,6 +800,7 @@ One script, `m6/popper_check.py`, recomputes every number in this post from the 
 
 ## Updates
 
+- **22 November 2026, evening.** Added section 9, our first measurement on real hardware: GPU energy for 18 languages on a laptop GPU. Energy follows the token count for one user, as the model predicts. We also report what went wrong (the charger came out mid-run) and how we handled it.
 - **22 November 2026, later.** Restructured for clarity, prompted by an outside reader's review:
   - an abstract, key results and four numbered contributions;
   - a plain-language opening to every section;
