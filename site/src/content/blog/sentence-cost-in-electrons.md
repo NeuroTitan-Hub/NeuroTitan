@@ -11,7 +11,35 @@ draft: false
 
 Type "Where is the nearest hospital?" into a chatbot in English and in Odia. The meaning is the same. The bill is not.
 
-This post follows that one sentence all the way down. First into tokens, the pieces a language model actually reads. Then into multiply-adds and bytes moved from memory. Then into transistors switching on SkyWater's open 130 nm process, simulated one device at a time. At the bottom we count electrons.
+This post follows that one sentence all the way down. First into tokens, the pieces a language model actually reads. Then into multiply-adds and bytes moved from memory. Then into transistors switching on SkyWater's open 130 nm process, simulated one device at a time. At the bottom we count electrons: the charge that flows through the chip's supply, expressed as a number of electrons.
+
+## At a glance
+
+![The chain in one picture. One average FLORES sentence read by Qwen3-8B: English needs 27.3 tokens, Odia 264.7 (9.70 times). That is 204.5 billion against 2.02 trillion multiply-adds (9.86 times), 0.25 J against 2.5 J on a simulated sky130 chip at 1.8 V, and 8.8 times 10 to the 17 against 8.7 times 10 to the 18 electrons of charge through the supply. On a GPU server shared by 64 users, a page of Odia costs 16.5 times English's energy.](/blog/sentence-cost-in-electrons/fig-0-abstract.svg)
+
+*Takeaway: the same meaning costs Odia about ten times English's arithmetic. On a busy server it costs more than that, because memory traffic grows faster than the token count.*
+
+**Choose your reading path.**
+
+| Time | For | Read |
+|---|---|---|
+| 5 minutes | Anyone | This picture, [what is established and what we add](#what-is-established-and-what-we-add), and [what did we actually learn?](#what-did-we-actually-learn) |
+| 15 minutes | ML and systems readers | Add [1. Words to tokens](#1-words-to-tokens), [2. Tokens to arithmetic](#2-tokens-to-arithmetic), [3. Arithmetic to a server's clock](#3-arithmetic-to-a-servers-clock) and [8. The whole chain](#8-the-whole-chain-one-sentence-two-languages) |
+| The full post | Circuits, semiconductor and physics readers | Everything, including the derivations in [4](#4-a-capacitor-charged) to [7](#7-real-chips-are-not-all-alike) |
+
+**Glossary.** Tap a term to open it.
+
+<details><summary>Token</summary>A piece of text from the model's fixed vocabulary: a word, part of a word, or a few bytes. The model's work grows with the number of tokens.</details>
+<details><summary>Multiply-add (MAC)</summary>One multiplication followed by one addition, a × b + c. Almost all of a language model's arithmetic is multiply-adds.</details>
+<details><summary>KV cache</summary>The keys and values the model has already computed for earlier tokens, stored in GPU memory so they need not be recomputed. It grows with every token of context and must be read again for every new token.</details>
+<details><summary>Roofline model</summary>A step can go no faster than the memory can deliver bytes, or the processor can do arithmetic, whichever is slower. The slower one is the bottleneck.</details>
+<details><summary>Batch</summary>The number of requests a server processes together in one step. Larger batches share the cost of reading the model's weights.</details>
+<details><summary>Supply voltage</summary>The voltage that powers the chip. Lower voltage saves energy but makes transistors slower.</details>
+<details><summary>Subthreshold leakage</summary>The small current a transistor still passes when it is meant to be off. At low voltage, circuits run slowly and leak for longer, so leakage becomes a large share of the energy.</details>
+<details><summary>Static noise margin (SNM)</summary>How large a voltage disturbance a memory cell can absorb without flipping its stored bit. Zero means the cell cannot hold its bit.</details>
+<details><summary>Process corner</summary>A worst-case or best-case version of the transistors that a factory might produce: typical, fast, slow, or fast for one transistor type and slow for the other.</details>
+<details><summary>Monte Carlo mismatch</summary>Simulating many copies of a circuit, each transistor with its own random variation, to see how many copies fail.</details>
+<details><summary>Charge through the supply, in electrons</summary>The energy drawn divided by the charge of one electron times the voltage, E / (qV). Each electron is counted every time it passes through the supply, so this is not the number of distinct electrons in the chip.</details>
 
 ## How to read this post
 
@@ -24,7 +52,23 @@ We show every formula, where it comes from, and the numbers we put into it. Each
 
 Each derivation has the same four parts: what it **assumes**, the **steps**, the **result**, and a **check** against data where we have one. If you want the story without the algebra, read the sentence that starts "In words" after each one.
 
-## What is already known, and what we add
+## What is established and what we add
+
+Most layers of this chain are known science. The table separates what was already established from what this post does.
+
+| Layer | Already established | What this post adds |
+|---|---|---|
+| Tokenizers treat languages unequally | Petrov et al. (2023): up to 15× for the same text | 204 languages × 8 tokenizers, with bootstrap 95% intervals |
+| Language changes inference energy | Deng et al. (2026) measured it on GPUs, 122 languages | A model built from counted memory traffic, tested against their numbers with nothing fitted. It ranks languages well (0.94) but over-predicts the size of the gaps |
+| Counting a transformer's arithmetic | Standard | Exact counts for Qwen3-8B, checked against PyTorch's own counter |
+| GPU memory limits batching | Known in LLM serving (for example vLLM) | A two-regime formula for cost per token, applied language by language |
+| Switching energy, leakage, the minimum-energy supply | Textbook device physics | Transistor-by-transistor simulation of the arithmetic on open sky130, at 3 corners and 13 supplies |
+| SRAM stability | Seevinck's method (1987) | 1,000-cell Monte Carlo at 5 corners and 9 supplies on sky130 |
+| A sentence's language traced down to charge in a circuit | We found no earlier work doing this end to end. That describes our search, not proof that none exists | The whole chain, open and rerunnable, with every number traceable to code and data |
+
+The last row is the contribution: one chain, every step derived or simulated in the open. No single layer is new on its own.
+
+### In more detail
 
 Two things in this post are not new, and we say so up front.
 
@@ -62,6 +106,8 @@ On Qwen3's tokenizer, the model Deng et al. measured most:
 | Shan | 284.7 | 10.43 [10.26, 10.60] |
 
 ![Token ratio to English on Qwen3's tokenizer for all 204 FLORES languages, sorted. Most languages sit between 1 and 4; Odia (9.7) and Shan (10.4) are at the far end.](/blog/sentence-cost-in-electrons/fig-1-tokens.svg)
+
+*Takeaway: on Qwen3, no language needs fewer tokens than English, 123 of the other 203 need at least twice as many, and Odia needs almost ten times as many.*
 
 Odia is the second most expensive of 204 languages on Qwen3. The tokenizer matters as much as the language: the same Odia text is 1.37× English on BLOOM's tokenizer and 12.9× on Mistral-Nemo's.
 
@@ -170,6 +216,11 @@ For Tibetan, $c = 3559$, this gives 8.3×.
 
 *In words:* once memory is full, every term except $c$ is fixed by the model and the GPU, so **cost per token is proportional to context length**. A language whose answers are 20 times longer pays about 20 times more per token, on top of producing 20 times more tokens.
 
+![Batch size against mean context per request, both on log scales, for Qwen3-8B on an L40S with 23 GB for KV cache. The batch stays at vLLM's cap of 256 up to about 609 tokens of context, then falls in proportion to 1 over context. English sits at the cap; Amharic gets 77 requests, Odia 56 and Shan 34.](/blog/sentence-cost-in-electrons/fig-7-memory.svg)
+
+*Takeaway: past about 600 tokens of context, GPU memory rather than the 256-request cap decides how many users share each step. Languages with long contexts share the GPU with fewer others, so each token costs more.*
+
+
 **Testing it against Deng et al.** [measured inputs, nothing fitted]. Inputs per language:
 
 - their output length, from their table;
@@ -187,6 +238,8 @@ The prediction is the formula above. Their energy readings are used only to scor
 | Amharic | 2,276 | 4.7× | 4.6× |
 
 ![Predicted against measured energy per token, relative to English, for 117 languages on log axes. Points cluster around the diagonal; rank correlation 0.94.](/blog/sentence-cost-in-electrons/fig-2-deng-test.svg)
+
+*Takeaway: counted memory traffic puts the languages in the right order, but predicts gaps that are too large for almost every one of them.*
 
 Over the 117 languages both datasets share, the rank correlation (section 9) is 0.94.
 
@@ -238,7 +291,9 @@ $$
 
 **Check** [simulated]. A sky130 inverter driving four others takes 12.2 fJ per transition at 1.8 V. $V^2$ scaling predicts $12.2 \times (0.5/1.8)^2 = 0.94$ fJ at 0.5 V. The simulation gives 0.69 fJ. That is lower than $V^2$, because the formula assumes a fixed $C$ and the transistors' own capacitance shrinks at low voltage.
 
-**Electrons, not joules** [derived]. The supply pushes charge $Q = E/V$ through the circuit, which is $N_e = E/(qV)$ electrons, with $q = 1.602 \times 10^{-19}$ C. Since $E \propto V^2$, $N_e \propto V$. *In words:* halving the voltage moves half the electrons, each carrying half the energy, so energy falls four times.
+**Electrons, not joules** [derived]. The supply pushes charge $Q = E/V$ through the circuit, which is $N_e = E/(qV)$ electrons, with $q = 1.602 \times 10^{-19}$ C. Since $E \propto V^2$, $N_e \propto V$. *In words:* halving the voltage moves half the charge, each electron carrying half the energy, so energy falls four times.
+
+*What this number is and is not.* $E/(qV)$ is charge throughput: the charge that passes through the supply, expressed in electrons. The same electrons go round the circuit again and again, and each pass counts. It is not the number of distinct electrons in the chip, which is far smaller. When this post says a sentence costs so many electrons, it means this throughput.
 
 ## 5. Transistors: why lower voltage is cheaper and slower
 
@@ -306,6 +361,8 @@ The larger root $x^\ast$ is the minimum. With $n = 1.7$, $L = 20$ and $\alpha$ f
 These are lower bounds: AND gates, wires and registers are not counted.
 
 ![Simulated inverter delay against supply voltage on a log scale, typical corner. Below 0.5 V the curve is a straight line, about 9.5 times slower per 100 mV.](/blog/sentence-cost-in-electrons/fig-3-delay.svg)
+
+*Takeaway: below about 0.5 V, every 100 mV of supply saved makes the circuit about 9.5 times slower.*
 
 ## 6. Memory: the bit that has to travel
 
@@ -410,6 +467,8 @@ The lowest supply where the margin reaches 6 sigma (the 1 MB rule above):
 
 ![Share of SRAM cells that fail to read, against supply voltage, for four process corners, with the logic's cheapest supply band (0.5 to 0.6 V) shaded. In that band, 5 to 100% of cells fail.](/blog/sentence-cost-in-electrons/fig-5-sram.svg)
 
+*Takeaway: at the voltages where arithmetic is cheapest, 5 to 100% of minimum-size memory cells fail to read, so memory needs a higher supply than logic.*
+
 **What it means.** The logic in section 5 is cheapest near 0.5 to 0.6 V. Minimum-size SRAM cells on this process need about 1 V on the typical corner, and 1.4 to 1.8 V to work on every corner, if they are to fill a 1 MB memory with no spare rows. At 0.5 V, 70% of typical cells fail. So the saving from low voltage applies to arithmetic, not to on-chip memory. Real chips handle this by giving SRAM its own, higher supply, or with larger cells and extra assist circuits. Those cost area and energy we have not counted.
 
 **A difference we have not closed.** Our earlier column test (128 cells, a real write driver) failed to write on the slow corner at 0.8 V and below. Here, with the bit line driven ideally to 0 V, the nominal slow-corner cell writes down to 0.7 V. The likely cause is the write driver and the loaded bit line, not the cell, but we have not confirmed it.
@@ -433,6 +492,8 @@ With the clock set by the theorem above, energy per 8-bit multiply-add:
 
 ![Energy per 8-bit multiply-add against supply voltage, log scale: one ideal typical adder, and typical, slow and fast corners with variation. Each curve has a minimum between 0.5 and 0.7 V.](/blog/sentence-cost-in-electrons/fig-4-energy.svg)
 
+*Takeaway: once chip-to-chip variation is counted, the cheapest supply is 0.6 to 0.7 V rather than 0.5 V, and the best saving falls from 12× to about 10×.*
+
 At 1.0 V and above, variation changes little. At 0.5 V it adds 32% on the typical corner, because the clock must wait for the slow copies and every gate leaks while it waits. The cheapest supply moves up: from 0.5 V to 0.6 V on the typical and slow corners, and to 0.7 V on the fast corner, which leaks most. The best saving over 1.8 V falls from 12× to about 10× (1245 / 123).
 
 Three limits:
@@ -447,12 +508,21 @@ Put it together for reading one FLORES sentence with Qwen3-8B (prompt processing
 
 **Arithmetic** [derived, sections 1 and 2]. A 27-token English sentence needs 204.5 billion multiply-adds. The 265-token Odia version needs 9.86 times as many: slightly more than the 9.7× token ratio, because attention grows with $n^2$.
 
+**What one multiply-add means here** [assumed mapping]. Qwen3-8B on a GPU multiplies 16-bit floating-point numbers (bf16) and adds the results in 32-bit. Our circuit multiplies two 8-bit integers and accumulates into 16 bits. So this is a stand-in, and it leaves out:
+
+- registers and the wires that bring operands to the multiplier;
+- control logic and clock distribution;
+- on-chip memory (section 6 covers it separately);
+- everything a real GPU adds around its arithmetic units.
+
+*How much the number format matters.* Horowitz's 45 nm figures give 0.23 pJ for an 8-bit integer multiply-add and 1.5 pJ for a 16-bit floating-point one, about 6.5 times more. If the same ratio held on sky130 (we have not tested it), a bf16-style multiply-add would cost about 8 pJ at 1.8 V, and every arithmetic energy in the next table would rise by the same factor. Read the table as a floor for the arithmetic alone.
+
 **Energy and electrons** [simulated energy per operation; sky130; lower bound]. With $E = M \cdot E_{\text{MAC}}$ and $N_e = E/(qV)$:
 
 | | English, 1.8 V | English, 0.5 V | Odia, 1.8 V | Odia, 0.5 V |
 |---|---|---|---|---|
 | Arithmetic energy | 0.25 J | 0.021 J | 2.5 J | 0.20 J |
-| Electrons from the supply | $8.8 \times 10^{17}$ | $2.6 \times 10^{17}$ | $8.7 \times 10^{18}$ | $2.5 \times 10^{18}$ |
+| Charge through the supply, in electrons | $8.8 \times 10^{17}$ | $2.6 \times 10^{17}$ | $8.7 \times 10^{18}$ | $2.5 \times 10^{18}$ |
 
 <div data-electron-explorer data-src="/blog/sentence-cost-in-electrons/explorer.json">
 <p><em>The interactive explorer needs JavaScript. The table above gives the same numbers for English and Odia.</em></p>
@@ -498,6 +568,8 @@ Since $0 \le s \le 1$, $G$ lies between $r$ and $r^2$.
 
 ![Energy ratio to English against token ratio, alone and on a busy server, with the curves y = r and y = r squared as bounds.](/blog/sentence-cost-in-electrons/fig-6-gap.svg)
 
+*Takeaway: on a shared server, the energy gap between languages grows faster than the token gap, toward its square.*
+
 ## 9. Statistics we used
 
 **Rank correlation** [derived definition]. Spearman's $\rho$ is the ordinary (Pearson) correlation computed on ranks instead of values. It asks only whether the two lists put the languages in the same order, so one large miss cannot dominate it. With no ties it reduces to
@@ -510,6 +582,45 @@ where $d_i$ is the difference between language $i$'s predicted and measured rank
 
 **Intervals** [derived procedure]. All 95% intervals on token ratios are percentile bootstrap intervals over sentences (section 1). The ranges on the busy-server gaps are not statistical intervals. They are the spread over the modelling choices we tried, which we report because we do not know the true values.
 
+## What did we actually learn?
+
+**Measured by us.**
+
+- Token counts for 204 languages on 8 tokenizers.
+- The length of the English Belebele prompt: 220 tokens.
+
+That is all we measured directly.
+
+**Measured by others, used here.**
+
+- Deng et al.'s GPU energy per language.
+- Published energy per bit for off-chip memory (Horowitz, O'Connor et al., Micron).
+
+**Derived, from stated assumptions.**
+
+- Operation and byte counts.
+- The cost per token in its two regimes.
+- The bound $r \le G \le r^2$ on the language gap.
+- Charging energy $CV^2$.
+- The 6-sigma rule for memory.
+
+**Simulated, not measured on hardware.**
+
+- Every sky130 energy, delay and memory margin, including the Monte Carlo runs.
+
+**Predicted by our model and checked against measurement.**
+
+- The order of languages by energy per token: rank correlation 0.94 with Deng et al.
+
+**Predicted but not yet verified.**
+
+- Absolute energy per language: our model over-predicts 114 of 116 languages.
+- Whether memory pressure on batch size is really what drives the gap.
+- How energy splits between reading the prompt and writing the answer.
+- Anything about modern chips, or about temperatures other than 27 °C.
+
+**Next.** We are measuring energy per language on a real GPU: joules, watts, latency and memory, prompt and answer separately, at several batch sizes. The results will be added here with a dated update, whether or not they agree with the model.
+
 ## What we did not do
 
 - **No outside review before publishing.** If an expert finds an error, we fix it here with a dated note.
@@ -521,6 +632,7 @@ where $d_i$ is the difference between language $i$'s predicted and measured rank
 
 ## Updates
 
+- **22 November 2026, later.** Added a visual abstract, reading paths, a glossary, a table of what is established and what we add, a memory-pressure figure, a takeaway under every figure, an explicit account of how our 8-bit circuit stands in for the model's 16-bit arithmetic, a note that our electron counts are charge throughput, not distinct electrons, and a closing section on what we measured, derived, simulated and have not verified. Prompted by an outside reader's review.
 - **22 November 2026.** Corrected section 8: the 13.9 to 31.5× range for Odia covers the multiply-add and memory energies we tried and the token count's 95% interval. It does not cover prompt lengths and memory budgets, as we first wrote. Added the explorer's second mode, the whole request on a GPU server. Read the abstracts of Seevinck et al. and Pelgrom et al., and checked our 8.3× and 179× against Deng et al.'s abstract, which gives the same figures.
 
 ## Sources
