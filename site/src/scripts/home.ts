@@ -1,14 +1,15 @@
 /*
  * Homepage motion. Everything here is decoration on top of content that is complete without it:
- * - with JavaScript off, the hero shows its first word, the field scene shows its final state,
- *   and numbers show their real values;
- * - under prefers-reduced-motion, canvases draw one still frame and nothing moves;
- * - canvases pause when off screen or when the tab is hidden.
+ * - with JavaScript off, the hero shows its first word and its figure caption, the statement is
+ *   fully readable, and numbers show their real values;
+ * - under prefers-reduced-motion, the figure draws one still frame and nothing moves;
+ * - the figure pauses when off screen or when the tab is hidden.
  */
 
 const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const ease = (t: number) => t * t * (3 - 2 * t);
+const easeInOut = (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 /** Runs `draw` on animation frames only while `el` is on screen and the tab is visible. */
 function loopWhileVisible(el: Element, draw: (t: number) => void) {
@@ -33,88 +34,278 @@ function loopWhileVisible(el: Element, draw: (t: number) => void) {
   document.addEventListener("visibilitychange", update);
 }
 
-function sizeCanvas(c: HTMLCanvasElement) {
-  const dpr = Math.min(devicePixelRatio || 1, 2);
-  const w = c.clientWidth;
-  const h = c.clientHeight;
-  c.width = Math.round(w * dpr);
-  c.height = Math.round(h * dpr);
-  const ctx = c.getContext("2d")!;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  return { ctx, w, h };
+/* ---------- 1. Hero figure: one set of points that becomes each field in turn ----------
+ * Machine learning: five layers of a network, with an activation wave moving through them.
+ * Semiconductors:   a die grid, with a signal sweeping across it.
+ * Quantum:          points on a Bloch sphere, with a state circle precessing around it.
+ * Same 840 points every time; they glide from one shape to the next.
+ */
+type V3 = [number, number, number];
+const N = 840;
+
+function networkShape(): V3[] {
+  const layers = 5;
+  const radii = [0.78, 0.6, 0.42, 0.6, 0.78];
+  const per = N / layers;
+  const out: V3[] = [];
+  for (let l = 0; l < layers; l++) {
+    for (let i = 0; i < per; i++) {
+      const r = radii[l] * Math.sqrt((i + 0.5) / per);
+      const a = i * 2.39996323; // golden angle: an even disc of points
+      out.push([-1.35 + (l * 2.7) / (layers - 1), r * Math.sin(a), r * Math.cos(a)]);
+    }
+  }
+  return out;
 }
 
-/* ---------- 1. Hero: signal streaming out from one point ---------- */
-function warp(c: HTMLCanvasElement) {
-  let { ctx, w, h } = sizeCanvas(c);
-  type P = { a: number; r: number; v: number; red: boolean; len: number };
-  const N = Math.round(clamp((w * h) / 2600, 160, 520));
-  const spawn = (r = Math.random() * 40): P => ({
-    a: Math.random() * Math.PI * 2,
-    r,
-    v: 0.25 + Math.random() * 0.9,
-    red: Math.random() < 0.07,
-    len: 0,
-  });
-  const ps: P[] = Array.from({ length: N }, () => spawn(Math.random() * Math.hypot(w, h) * 0.6));
+function chipShape(): V3[] {
+  // 28 x 30 grid = 840, a flat die
+  const out: V3[] = [];
+  for (let i = 0; i < 28; i++) {
+    for (let j = 0; j < 30; j++) {
+      out.push([-1 + (2 * j) / 29, 0, -0.93 + (1.86 * i) / 27]);
+    }
+  }
+  return out;
+}
+
+function sphereShape(): V3[] {
+  const out: V3[] = [];
+  for (let i = 0; i < N; i++) {
+    const y = 1 - (2 * (i + 0.5)) / N;
+    const r = Math.sqrt(1 - y * y);
+    const a = i * 2.39996323;
+    out.push([r * Math.cos(a), y, r * Math.sin(a)]);
+  }
+  return out;
+}
+
+/** How "lit" (red) a point is in each shape at time t, from 0 to 1. */
+const accents = [
+  // network: a wave moving from the input layer to the output layer
+  (p: V3, t: number) => clamp(1 - Math.abs(((p[0] + 1.35) / 2.7) * 4 - ((t * 1.4) % 6.5 - 1)) * 2.4),
+  // chip: a signal line sweeping across the die
+  (p: V3, t: number) => clamp(1 - Math.abs(p[0] - (((t * 0.7) % 2.6) - 1.3)) * 14),
+  // sphere: a great circle (the state's orbit) precessing around the vertical axis
+  (p: V3, t: number) => {
+    const a = t * 0.8;
+    const n: V3 = [Math.sin(a) * 0.6, 0.8, Math.cos(a) * 0.6];
+    return clamp(1 - Math.abs(p[0] * n[0] + p[1] * n[1] + p[2] * n[2]) * 12);
+  },
+];
+
+function figure(c: HTMLCanvasElement) {
+  const caption = document.querySelector<HTMLElement>("[data-figure-caption]");
+  const captions: string[] = JSON.parse(caption?.dataset.captions || "[]");
+  const shapes = [networkShape(), chipShape(), sphereShape()];
+  // Each shape has the camera angle that reads best for it; the camera glides between them.
+  const views = [
+    { yaw: 0.52, pitch: -0.16 }, // network: layers seen side by side
+    { yaw: 0.45, pitch: -0.95 }, // chip: looking down on the die
+    { yaw: 0, pitch: -0.32 }, // sphere
+  ];
+  // Network connections: a fixed sample of links between neighbouring layers.
+  const per = N / 5;
+  const links: [number, number][] = [];
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (let l = 0; l < 4; l++) {
+    for (let k = 0; k < 46; k++) {
+      links.push([l * per + Math.floor(rnd() * per), (l + 1) * per + Math.floor(rnd() * per)]);
+    }
+  }
+  const chipCorners: V3[] = [
+    [-1.08, 0, -1.01],
+    [1.08, 0, -1.01],
+    [1.08, 0, 1.01],
+    [-1.08, 0, 1.01],
+  ];
+
+  const ctx = c.getContext("2d")!;
+  let w = 0;
+  let h = 0;
+  const resize = () => {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    w = c.clientWidth;
+    h = c.clientHeight;
+    c.width = Math.round(w * dpr);
+    c.height = Math.round(h * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resize();
+  addEventListener("resize", resize);
+
   let mx = 0;
   let my = 0;
-  c.parentElement?.addEventListener("pointermove", (e) => {
-    const b = c.getBoundingClientRect();
-    mx = (e.clientX - b.left) / b.width - 0.5;
-    my = (e.clientY - b.top) / b.height - 0.5;
+  addEventListener("pointermove", (e) => {
+    mx = (e.clientX / innerWidth - 0.5) * 2;
+    my = (e.clientY / innerHeight - 0.5) * 2;
   });
-  addEventListener("resize", () => ({ ctx, w, h } = sizeCanvas(c)));
+  let rx = 0;
+  let ry = 0;
 
-  const frame = (still: boolean) => {
-    const cx = w * (0.68 - mx * 0.04);
-    const cy = h * (0.46 - my * 0.04);
-    const maxR = Math.hypot(w, h) * 0.75;
-    ctx.fillStyle = still ? "#0f0f0f" : "rgba(15,15,15,0.28)";
-    ctx.fillRect(0, 0, w, h);
-    for (const p of ps) {
-      const speed = p.v * (1 + p.r / 120);
-      if (!still) p.r += speed;
-      p.len = Math.min(26, speed * 5);
-      if (p.r > maxR) Object.assign(p, spawn());
-      const k = clamp(p.r / (maxR * 0.5));
-      const x1 = cx + Math.cos(p.a) * p.r;
-      const y1 = cy + Math.sin(p.a) * p.r;
-      const x0 = cx + Math.cos(p.a) * (p.r - p.len);
-      const y0 = cy + Math.sin(p.a) * (p.r - p.len);
-      ctx.strokeStyle = p.red ? `rgba(229,87,78,${0.25 + 0.6 * k})` : `rgba(236,232,225,${0.08 + 0.5 * k})`;
-      ctx.lineWidth = 0.6 + k * 0.9;
-      ctx.beginPath();
-      ctx.moveTo(x0, y0);
-      ctx.lineTo(x1, y1);
-      ctx.stroke();
+  const HOLD = 4.4; // seconds a shape stays
+  const MORPH = 1.6; // seconds to glide to the next
+  const CYCLE = HOLD + MORPH;
+  let shown = -1;
+  const PX = new Float32Array(N);
+  const PY = new Float32Array(N);
+  const LIT = new Float32Array(N);
+
+  const spin = (p: V3, a: number): V3 => {
+    const ca = Math.cos(a);
+    const sa = Math.sin(a);
+    return [p[0] * ca + p[2] * sa, p[1], -p[0] * sa + p[2] * ca];
+  };
+
+  const draw = (ms: number) => {
+    const t = ms / 1000;
+    const k = Math.floor(t / CYCLE);
+    const phase = t - k * CYCLE;
+    const from = k % 3;
+    const to = (k + 1) % 3;
+    const m = phase < HOLD ? 0 : easeInOut((phase - HOLD) / MORPH);
+    const current = m < 0.5 ? from : to;
+    if (caption && current !== shown && captions[current]) {
+      shown = current;
+      caption.classList.remove("is-in");
+      void caption.offsetWidth;
+      caption.textContent = captions[current];
+      caption.classList.add("is-in");
     }
-    // a soft core where the signal comes from
-    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 46);
-    g.addColorStop(0, "rgba(255,236,230,0.5)");
-    g.addColorStop(0.3, "rgba(229,87,78,0.14)");
-    g.addColorStop(1, "rgba(229,87,78,0)");
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(cx, cy, 46, 0, Math.PI * 2);
-    ctx.fill();
+    const weight = (i: number) => (from === i ? 1 - m : 0) + (to === i ? m : 0);
+
+    rx += (my * 0.12 - rx) * 0.05;
+    ry += (mx * 0.25 - ry) * 0.05;
+    const yaw = views[from].yaw + (views[to].yaw - views[from].yaw) * m + 0.22 * Math.sin(t * 0.35) + ry;
+    const pitch = views[from].pitch + (views[to].pitch - views[from].pitch) * m + rx;
+    const cy = Math.cos(yaw);
+    const sy = Math.sin(yaw);
+    const cp = Math.cos(pitch);
+    const sp = Math.sin(pitch);
+    const scale = Math.min(w, h) * 0.34;
+    const ox = w / 2;
+    const oy = h / 2;
+    const project = (x: number, y: number, z: number) => {
+      const x1 = x * cy + z * sy;
+      const z1 = -x * sy + z * cy;
+      const y2 = y * cp - z1 * sp;
+      const z2 = y * sp + z1 * cp;
+      const persp = 3.4 / (3.4 + z2);
+      return [ox + x1 * scale * persp, oy + y2 * scale * persp, z2] as const;
+    };
+
+    ctx.clearRect(0, 0, w, h);
+    const sphereSpin = t * 0.25;
+    const A = shapes[from];
+    const B = shapes[to];
+
+    // points
+    const pts: { x: number; y: number; d: number; lit: number }[] = [];
+    for (let i = 0; i < N; i++) {
+      const a = from === 2 ? spin(A[i], sphereSpin) : A[i];
+      const b = to === 2 ? spin(B[i], sphereSpin) : B[i];
+      const mi = clamp(m * 1.25 - (i / N) * 0.25);
+      const [px, py, z2] = project(
+        a[0] + (b[0] - a[0]) * mi,
+        a[1] + (b[1] - a[1]) * mi,
+        a[2] + (b[2] - a[2]) * mi,
+      );
+      const lit = (1 - mi) * accents[from](a, t) + mi * accents[to](b, t);
+      PX[i] = px;
+      PY[i] = py;
+      LIT[i] = lit;
+      pts.push({ x: px, y: py, d: clamp((1.2 - z2) / 2.4), lit });
+    }
+
+    // network links (fade with the network's share of the picture)
+    const wn = weight(0);
+    if (wn > 0.02) {
+      ctx.lineWidth = 0.6;
+      for (const [i, j] of links) {
+        const hot = Math.min(LIT[i], LIT[j]);
+        ctx.strokeStyle = hot > 0.2 ? `rgba(229,87,78,${0.6 * wn * hot})` : `rgba(236,232,225,${0.1 * wn})`;
+        ctx.beginPath();
+        ctx.moveTo(PX[i], PY[i]);
+        ctx.lineTo(PX[j], PY[j]);
+        ctx.stroke();
+      }
+    }
+
+    // chip outline and pads
+    const wc = weight(1);
+    if (wc > 0.02) {
+      const cs = chipCorners.map((p) => project(p[0], p[1], p[2]));
+      ctx.strokeStyle = `rgba(236,232,225,${0.4 * wc})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      cs.forEach(([x, y], n) => (n ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+      ctx.stroke();
+      ctx.strokeStyle = `rgba(236,232,225,${0.22 * wc})`;
+      for (let n = 0; n < 8; n++) {
+        const u = -0.85 + (n * 1.7) / 7;
+        for (const [p0, p1] of [
+          [[u, 0, -1.01], [u, 0, -1.2]],
+          [[u, 0, 1.01], [u, 0, 1.2]],
+        ] as [V3, V3][]) {
+          const [x0, y0] = project(p0[0], p0[1], p0[2]);
+          const [x1, y1] = project(p1[0], p1[1], p1[2]);
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          ctx.lineTo(x1, y1);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // sphere axis and equator
+    const ws = weight(2);
+    if (ws > 0.02) {
+      ctx.strokeStyle = `rgba(236,232,225,${0.2 * ws})`;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 5]);
+      const [ax0, ay0] = project(0, -1.25, 0);
+      const [ax1, ay1] = project(0, 1.25, 0);
+      ctx.beginPath();
+      ctx.moveTo(ax0, ay0);
+      ctx.lineTo(ax1, ay1);
+      ctx.stroke();
+      ctx.beginPath();
+      for (let n = 0; n <= 64; n++) {
+        const a = (n / 64) * Math.PI * 2;
+        const [ex, ey] = project(Math.cos(a) * 1.02, 0, Math.sin(a) * 1.02);
+        if (n) ctx.lineTo(ex, ey);
+        else ctx.moveTo(ex, ey);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // points last, far ones first
+    pts.sort((p, q) => p.d - q.d);
+    for (const p of pts) {
+      const r = (0.75 + p.d * 1.35) * (1 + p.lit * 0.7);
+      ctx.fillStyle =
+        p.lit > 0.05 ? `rgba(229,87,78,${0.35 + 0.65 * p.lit})` : `rgba(236,232,225,${0.16 + p.d * 0.76})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r, 0, 6.2832);
+      ctx.fill();
+    }
   };
 
   if (reduce) {
-    for (let i = 0; i < 40; i++) frame(false);
-    frame(true);
+    draw(1200);
     return;
   }
-  ctx.fillStyle = "#0f0f0f";
-  ctx.fillRect(0, 0, w, h);
-  loopWhileVisible(c, () => frame(false));
+  loopWhileVisible(c, draw);
 }
 
 /* ---------- 2. Hero: the last word scrambles into the next one ---------- */
 function swapWords(el: HTMLElement) {
   const words: string[] = JSON.parse(el.dataset.words || "[]");
   if (reduce || words.length < 2) return;
-  const glyphs = "01<>/=+*#%&$@";
+  const glyphs = "01<>/=+*#%&";
   let i = 0;
   const to = (next: string) => {
     const from = el.textContent || "";
@@ -143,23 +334,17 @@ function swapWords(el: HTMLElement) {
   }, 2800);
 }
 
-/* ---------- 3. One core splits into the three fields as you scroll ---------- */
-function orbit(section: HTMLElement) {
-  const stage = section.querySelector<HTMLElement>("[data-orbit-stage]");
-  if (!stage) return;
-  if (reduce) {
-    section.classList.add("is-static");
-    return;
-  }
+/* ---------- 3. Statement: words light up as you scroll through it ---------- */
+function statement(section: HTMLElement) {
+  const words = Array.from(section.querySelectorAll<HTMLElement>(".w"));
+  if (reduce || !words.length) return;
   section.classList.add("is-live");
   const update = () => {
     const b = section.getBoundingClientRect();
     const total = b.height - innerHeight;
-    const p = clamp(-b.top / (total || 1));
-    stage.style.setProperty("--grow", ease(clamp(p / 0.22)).toFixed(3));
-    stage.style.setProperty("--split", ease(clamp((p - 0.18) / 0.37)).toFixed(3));
-    stage.style.setProperty("--labels", ease(clamp((p - 0.5) / 0.2)).toFixed(3));
-    stage.style.setProperty("--text", ease(clamp((p - 0.68) / 0.22)).toFixed(3));
+    const p = clamp((-b.top + innerHeight * 0.1) / (total * 0.85 || 1));
+    const lit = Math.round(p * words.length);
+    words.forEach((w, i) => w.classList.toggle("on", i < lit));
   };
   let queued = false;
   const onScroll = () => {
@@ -195,51 +380,7 @@ function countUp(el: HTMLElement) {
   io.observe(el);
 }
 
-/* ---------- 5. A rippling field of points (a wave on a plane) ---------- */
-function wave(c: HTMLCanvasElement) {
-  let { ctx, w, h } = sizeCanvas(c);
-  addEventListener("resize", () => ({ ctx, w, h } = sizeCanvas(c)));
-  let px = 0.5;
-  let py = 0.5;
-  c.addEventListener("pointermove", (e) => {
-    const b = c.getBoundingClientRect();
-    px = (e.clientX - b.left) / b.width;
-    py = (e.clientY - b.top) / b.height;
-  });
-  const cols = 34;
-  const rows = 22;
-  const draw = (t: number) => {
-    ctx.clearRect(0, 0, w, h);
-    const time = t / 1000;
-    for (let j = 0; j < rows; j++) {
-      const depth = j / (rows - 1); // 0 far, 1 near
-      const y0 = h * (0.12 + 0.82 * depth * depth * 0.6 + depth * 0.32);
-      const spread = 0.45 + 0.55 * depth;
-      for (let i = 0; i < cols; i++) {
-        const u = i / (cols - 1);
-        const x = w * (0.5 + (u - 0.5) * spread);
-        const dx = u - px;
-        const dy = depth - py;
-        const d = Math.hypot(dx, dy);
-        const z = Math.sin(d * 14 - time * 2.2) * Math.exp(-d * 2.2) + 0.35 * Math.sin(u * 6 + time * 0.9);
-        const y = y0 - z * 18 * (0.4 + depth);
-        const r = 0.6 + depth * 1.6;
-        const a = 0.15 + depth * 0.55;
-        const hot = z > 0.75;
-        ctx.fillStyle = hot ? `rgba(163,33,27,${a + 0.2})` : `rgba(21,21,21,${a})`;
-        ctx.fillRect(x - r, y - r, r * 2, r * 2);
-      }
-    }
-  };
-  if (reduce) {
-    draw(0);
-    return;
-  }
-  loopWhileVisible(c, draw);
-}
-
-document.querySelectorAll<HTMLCanvasElement>("canvas[data-warp]").forEach(warp);
+document.querySelectorAll<HTMLCanvasElement>("canvas[data-figure]").forEach(figure);
 document.querySelectorAll<HTMLElement>("[data-words]").forEach(swapWords);
-document.querySelectorAll<HTMLElement>("[data-orbit]").forEach(orbit);
+document.querySelectorAll<HTMLElement>("[data-statement]").forEach(statement);
 document.querySelectorAll<HTMLElement>("[data-count]").forEach(countUp);
-document.querySelectorAll<HTMLCanvasElement>("canvas[data-wave]").forEach(wave);

@@ -21,12 +21,16 @@ const published = allPosts.filter((p) => !p.data.draft).length;
 // JavaScript, screen readers and search engines get.
 const words = ["rerun.", "check.", "measure.", "build on."];
 
-// Where each field sits once the core splits, and what it is working on now.
-const orbs = {
-  ai: { x: 0, y: -1, tag: "Titan-nano · post 1", hue: "red" },
-  semiconductors: { x: 0.87, y: 0.5, tag: "sky130 · open EDA", hue: "amber" },
-  quantum: { x: -0.87, y: 0.5, tag: "QML-benchmarks", hue: "blue" },
-} as const;
+// Captions under the hero figure, in the order the figure shows the fields.
+const captions = [
+  "01 · Machine learning: layers of a network, an activation passing through",
+  "02 · Semiconductors: a die grid, a signal crossing it",
+  "03 · Quantum computing: states on a Bloch sphere, one orbit precessing",
+];
+
+// The statement that lights up word by word. Words marked with * are drawn in red.
+const statement =
+  "A result is not *finished until someone other than its author has *rerun it from the published code and got the *same *numbers.".split(" ");
 
 const numbers = [
   { label: "Public repositories", value: stats.publicRepos, src: `GitHub · ${SITE.githubOrg} · ${stats.fetchedAt}` },
@@ -37,24 +41,28 @@ const numbers = [
 ---
 
 <Base>
-  <!-- 1. HERO: dark stage, signal streaming out of one point -->
+  <!-- 1. HERO: dark stage; text left, a figure that becomes each field on the right -->
   <section class="hero t-graphite">
-    <canvas class="warp" data-warp aria-hidden="true"></canvas>
-    <div class="hero-shade" aria-hidden="true"></div>
-    <div class="wrap hero-inner">
-      <p class="eyebrow label"><span class="dash" aria-hidden="true"></span>NeuroTitan Labs · independent research</p>
-      <h1 class="hero-title" aria-label={`Research you can ${words[0]}`}>
-        <span aria-hidden="true">Research you can</span>
-        <span class="swap" aria-hidden="true" data-words={JSON.stringify(words)}>{words[0]}</span>
-      </h1>
-      <p class="lede hero-lede">
-        We work on machine learning, chip design and quantum computing. Every result ships with the code, data and
-        random seeds that produced it, and we publish what did not work next to what did.
-      </p>
-      <div class="actions">
-        <a class="btn btn--light" href="/ai">Explore NeuroTitan AI <span aria-hidden="true">→</span></a>
-        <a class="btn btn--glass" href="/research">Research areas</a>
+    <div class="wrap hero-grid">
+      <div class="hero-inner">
+        <p class="eyebrow label"><span class="dash" aria-hidden="true"></span>NeuroTitan Labs · independent research</p>
+        <h1 class="hero-title" aria-label={`Research you can ${words[0]}`}>
+          <span aria-hidden="true">Research you can</span>
+          <span class="swap" aria-hidden="true" data-words={JSON.stringify(words)}>{words[0]}</span>
+        </h1>
+        <p class="lede hero-lede">
+          We work on machine learning, chip design and quantum computing. Every result ships with the code, data and
+          random seeds that produced it, and we publish what did not work next to what did.
+        </p>
+        <div class="actions">
+          <a class="btn btn--light" href="/ai">Explore NeuroTitan AI <span aria-hidden="true">→</span></a>
+          <a class="btn btn--glass" href="/research">Research areas</a>
+        </div>
       </div>
+      <figure class="hero-figure" aria-hidden="true">
+        <canvas data-figure></canvas>
+        <figcaption class="label" data-figure-caption data-captions={JSON.stringify(captions)}>{captions[0]}</figcaption>
+      </figure>
     </div>
     <div class="wrap facts">
       <div><strong>Code</strong><span>with every result</span></div>
@@ -65,31 +73,21 @@ const numbers = [
 
   <Ticker items={TOOLS} label="Tools we use" />
 
-  <!-- 2. ONE LAB, THREE FIELDS: a core that splits as you scroll -->
-  <section class="orbit t-graphite" data-orbit aria-labelledby="orbit-title">
-    <div class="orbit-stage" data-orbit-stage>
-      <p class="orbit-kicker label">One lab</p>
-      <div class="core" aria-hidden="true"></div>
-      {
-        FIELDS.map((f) => {
-          const o = orbs[f.id];
-          return (
-            <a
-              class={`orb orb--${o.hue}`}
-              href={f.href}
-              style={`--x:${o.x};--y:${o.y}`}
-              aria-label={`${f.name}: ${o.tag}`}
-            >
-              <span class="glow" aria-hidden="true" />
-              <span class="orb-label">
-                <strong>{f.name}</strong>
-                <small>{o.tag}</small>
-              </span>
-            </a>
-          );
-        })
-      }
-      <h2 id="orbit-title" class="orbit-title">Three fields,<br />one standard of evidence.</h2>
+  <!-- 2. STATEMENT: the lab's rule, lit word by word as you scroll -->
+  <section class="statement t-graphite" data-statement>
+    <div class="statement-stage">
+      <div class="wrap">
+        <p class="label statement-kicker">The standard</p>
+        <p class="statement-text">
+          {
+            statement.map((w) => (
+              <>
+                <span class:list={["w", { red: w.startsWith("*") }]}>{w.replace("*", "")}</span>{" "}
+              </>
+            ))
+          }
+        </p>
+      </div>
     </div>
   </section>
 
@@ -260,30 +258,36 @@ const numbers = [
     </div>
   </section>
 
-  <!-- 9. JOIN: a panel with a rippling field -->
+  <!-- 9. JOIN -->
   <section class="section join-sec">
-    <div class="wrap">
-      <div class="join-panel" data-reveal>
-        <div class="join-text">
-          <p class="label label--red">07 · Join the lab</p>
-          <h2>Rerun our work.<br /><span class="soft">Or build the next one with us.</span></h2>
-          <ul class="join-list">
-            <li>
-              <span class="label">GitHub</span>
-              <a href={SITE.github} rel="noopener">Every repository is public. Issues and pull requests welcome ↗</a>
-            </li>
-            <li>
-              <span class="label">Campus ambassadors</span>
-              <a href={CAMPUS_AMBASSADOR_FORM} rel="noopener">Represent the lab and run sessions at your college ↗</a>
-            </li>
-            <li>
-              <span class="label">Corrections</span>
-              <a href={`mailto:${SITE.email}`}>Found an error? {SITE.email}</a>
-            </li>
-          </ul>
-        </div>
-        <canvas class="wave" data-wave aria-hidden="true"></canvas>
+    <div class="wrap join-grid">
+      <div class="join-head" data-reveal>
+        <p class="label label--red">07 · Join the lab</p>
+        <h2>Rerun our work.<br /><span class="soft">Or build the next one with us.</span></h2>
       </div>
+      <ul class="join-links" data-reveal>
+        <li>
+          <a href={SITE.github} rel="noopener">
+            <span class="label">GitHub</span>
+            <span class="jl-text">Every repository is public. Issues and pull requests welcome.</span>
+            <span class="arrow" aria-hidden="true">↗</span>
+          </a>
+        </li>
+        <li>
+          <a href={CAMPUS_AMBASSADOR_FORM} rel="noopener">
+            <span class="label">Campus ambassadors</span>
+            <span class="jl-text">Represent the lab and run sessions at your college.</span>
+            <span class="arrow" aria-hidden="true">↗</span>
+          </a>
+        </li>
+        <li>
+          <a href={`mailto:${SITE.email}`}>
+            <span class="label">Corrections</span>
+            <span class="jl-text">Found an error? {SITE.email}</span>
+            <span class="arrow" aria-hidden="true">→</span>
+          </a>
+        </li>
+      </ul>
     </div>
   </section>
 </Base>
@@ -348,32 +352,23 @@ const numbers = [
     min-height: 100svh;
     display: grid;
     grid-template-rows: 1fr auto;
-    isolation: isolate;
-  }
-
-  .warp {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: -2;
-  }
-
-  .hero-shade {
-    position: absolute;
-    inset: 0;
-    z-index: -1;
     background:
-      linear-gradient(90deg, rgba(15, 15, 15, 0.92) 0%, rgba(15, 15, 15, 0.55) 45%, rgba(15, 15, 15, 0) 75%),
-      linear-gradient(0deg, rgba(15, 15, 15, 1) 0%, rgba(15, 15, 15, 0) 22%);
+      radial-gradient(60rem 40rem at 78% 45%, rgba(229, 87, 78, 0.07), transparent 60%),
+      var(--paper);
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    gap: clamp(1.5rem, 4vw, 4rem);
+    align-items: center;
+    width: 100%;
+    padding-block: clamp(2.5rem, 7vh, 5rem) 2rem;
   }
 
   .hero-inner {
-    align-self: center;
     display: grid;
     gap: 1.6rem;
-    width: 100%;
-    padding-block: clamp(3rem, 8vh, 6rem) 2rem;
   }
 
   .eyebrow {
@@ -390,11 +385,10 @@ const numbers = [
 
   .hero-title {
     display: grid;
-    font-size: clamp(3rem, 9vw, 7.25rem);
+    font-size: clamp(3rem, 7.4vw, 6.75rem);
     font-weight: 400;
     letter-spacing: -0.035em;
     line-height: 0.98;
-    max-width: 12ch;
   }
 
   .swap {
@@ -405,7 +399,40 @@ const numbers = [
   }
 
   .hero-lede {
-    max-width: 36rem;
+    max-width: 34rem;
+  }
+
+  .hero-figure {
+    margin: 0;
+    display: grid;
+    gap: 0.75rem;
+    justify-items: center;
+  }
+
+  .hero-figure canvas {
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 38rem;
+  }
+
+  .hero-figure figcaption {
+    min-height: 2.6em;
+    max-width: 30rem;
+    text-align: center;
+    line-height: 1.5;
+    text-transform: none;
+    letter-spacing: 0.02em;
+  }
+
+  .hero-figure figcaption.is-in {
+    animation: cap-in 600ms ease both;
+  }
+
+  @keyframes cap-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
   }
 
   .facts {
@@ -439,146 +466,59 @@ const numbers = [
     color: var(--grey);
   }
 
-  /* ---------- 2. orbit scene ----------
-     Default (no JS, reduced motion): final state, one screen tall.
-     With JS (.is-live): a tall section whose stage sticks while the core splits. */
-  .orbit {
-    position: relative;
+  /* ---------- 2. statement ----------
+     Without JS (or with reduced motion) the text is simply shown in full. With JS the section is
+     taller and its stage sticks while the words light up. */
+  .statement {
     border-top: 1px solid var(--rule);
   }
 
-  .orbit.is-live {
-    height: 320vh;
-  }
-
-  .orbit-stage {
-    --grow: 1;
-    --split: 1;
-    --labels: 1;
-    --text: 1;
-    --R: min(26vmin, 14rem);
-    position: relative;
-    height: 100svh;
-    min-height: 34rem;
-    overflow: hidden;
+  .statement-stage {
     display: grid;
-    place-items: center;
+    align-items: center;
+    padding-block: clamp(5rem, 14vh, 9rem);
   }
 
-  .orbit.is-live .orbit-stage {
+  .statement.is-live {
+    height: 240vh;
+  }
+
+  .statement.is-live .statement-stage {
     position: sticky;
     top: 0;
+    min-height: 100svh;
+    padding-block: var(--header-h) 2rem;
   }
 
-  .orbit-kicker {
-    position: absolute;
-    top: calc(var(--header-h) + 1.5rem);
-    left: 50%;
-    transform: translateX(-50%);
-    opacity: calc(1 - var(--text));
+  .statement-kicker {
+    margin-bottom: 1.75rem;
   }
 
-  .core,
-  .orb {
-    position: absolute;
-    left: 50%;
-    top: 50%;
+  .statement-text {
+    font-family: var(--serif);
+    font-size: clamp(2rem, 5.2vw, 4.6rem);
+    line-height: 1.12;
+    letter-spacing: -0.025em;
+    max-width: 22ch;
+    text-wrap: balance;
   }
 
-  .core {
-    width: 9rem;
-    height: 9rem;
-    margin: -4.5rem 0 0 -4.5rem;
-    border-radius: 50%;
-    background: radial-gradient(circle, #fff 0%, #f3b2a9 18%, #e5574e 42%, rgba(229, 87, 78, 0) 70%);
-    filter: blur(2px);
-    transform: scale(calc(0.4 + 0.9 * var(--grow) - 0.5 * var(--split)));
-    opacity: calc(1 - 0.85 * var(--split));
-    animation: breathe 3.2s ease-in-out infinite;
+  .w {
+    transition: color 350ms ease;
   }
 
-  @keyframes breathe {
-    50% {
-      filter: blur(6px) brightness(1.15);
-    }
+  .statement.is-live .w {
+    color: rgba(236, 232, 225, 0.16);
   }
 
-  .orb {
-    width: 0;
-    height: 0;
-    text-decoration: none;
+  .statement.is-live .w.on {
     color: var(--ink);
-    transform: translate(calc(var(--x) * var(--R) * var(--split)), calc(var(--y) * var(--R) * var(--split) - 2rem));
-    opacity: calc(var(--split) * 1.4);
   }
 
-  .glow {
-    position: absolute;
-    width: 6.5rem;
-    height: 6.5rem;
-    left: -3.25rem;
-    top: -3.25rem;
-    border-radius: 50%;
-    background: radial-gradient(circle, #fff 0%, var(--c1) 25%, var(--c2) 48%, transparent 70%);
-    transition: transform 300ms ease;
-    animation: breathe 3.2s ease-in-out infinite;
-  }
-
-  .orb:hover .glow,
-  .orb:focus-visible .glow {
-    transform: scale(1.15);
-  }
-
-  .orb--red {
-    --c1: #f3b2a9;
-    --c2: rgba(229, 87, 78, 0.85);
-  }
-
-  .orb--amber {
-    --c1: #f6dca6;
-    --c2: rgba(217, 155, 52, 0.85);
-  }
-
-  .orb--blue {
-    --c1: #c9d6ff;
-    --c2: rgba(96, 128, 230, 0.85);
-  }
-
-  .orb-label {
-    position: absolute;
-    top: 3.6rem;
-    left: 0;
-    transform: translateX(-50%);
-    display: grid;
-    justify-items: center;
-    gap: 0.15rem;
-    white-space: nowrap;
-    opacity: var(--labels);
-  }
-
-  .orb-label strong {
-    font-weight: 500;
-    font-size: 1.05rem;
-  }
-
-  .orb-label small {
-    font-family: var(--mono);
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--grey);
-  }
-
-  .orbit-title {
-    position: absolute;
-    bottom: clamp(2rem, 8vh, 5rem);
-    left: 0;
-    right: 0;
-    text-align: center;
-    font-size: clamp(1.8rem, 4.2vw, 3.25rem);
-    padding-inline: var(--gutter);
-    opacity: var(--text);
-    transform: translateY(calc((1 - var(--text)) * 1.5rem));
+  .w.red,
+  .statement.is-live .w.red.on {
+    color: var(--red);
+    font-style: italic;
   }
 
   /* ---------- 3. field rows ---------- */
@@ -875,25 +815,19 @@ const numbers = [
   }
 
   /* ---------- 9. join ---------- */
-  .join-panel {
+  .join-grid {
     display: grid;
-    grid-template-columns: 1.1fr 1fr;
-    align-items: stretch;
-    border-radius: 2rem;
-    border: 1px solid var(--rule);
-    background: linear-gradient(135deg, #fff 0%, var(--paper) 60%);
-    overflow: hidden;
-    box-shadow: 0 30px 60px -40px rgba(21, 21, 21, 0.35);
+    grid-template-columns: 1fr 1.25fr;
+    gap: clamp(2rem, 5vw, 5rem);
+    align-items: start;
   }
 
-  .join-text {
+  .join-head {
     display: grid;
-    gap: 1.5rem;
-    align-content: center;
-    padding: clamp(2rem, 5vw, 3.5rem);
+    gap: 1.25rem;
   }
 
-  .join-text h2 {
+  .join-head h2 {
     font-size: clamp(2.1rem, 4.4vw, 3.5rem);
   }
 
@@ -901,39 +835,72 @@ const numbers = [
     color: var(--grey);
   }
 
-  .join-list {
+  .join-links {
     list-style: none;
     margin: 0;
     padding: 0;
-    display: grid;
-    gap: 0.9rem;
+    border-top: 1px solid var(--ink);
   }
 
-  .join-list li {
+  .join-links a {
     display: grid;
-    gap: 0.2rem;
-    padding-top: 0.9rem;
-    border-top: 1px solid var(--rule);
-  }
-
-  .join-list a {
-    color: var(--ink);
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "label arrow"
+      "text arrow";
+    gap: 0.35rem 1.5rem;
+    align-items: center;
+    padding: 1.5rem 0.25rem;
+    border-bottom: 1px solid var(--rule);
     text-decoration: none;
+    color: var(--ink);
+    transition: padding 220ms ease;
+  }
+
+  .join-links .label {
+    grid-area: label;
+  }
+
+  .jl-text {
+    grid-area: text;
+    font-size: clamp(1.1rem, 1.8vw, 1.35rem);
     overflow-wrap: anywhere;
   }
 
-  .join-list a:hover {
-    color: var(--red);
+  .arrow {
+    grid-area: arrow;
+    display: grid;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 50%;
+    border: 1px solid var(--rule);
+    font-size: 1.1rem;
+    transition: background-color 220ms ease, color 220ms ease, border-color 220ms ease, transform 220ms ease;
   }
 
-  .wave {
-    width: 100%;
-    height: 100%;
-    min-height: 22rem;
+  .join-links a:hover {
+    color: var(--ink);
+    padding-left: 0.9rem;
+  }
+
+  .join-links a:hover .arrow {
+    background: var(--red);
+    border-color: var(--red);
+    color: var(--on-red);
+    transform: rotate(-8deg);
   }
 
   /* ---------- responsive ---------- */
   @media (max-width: 64rem) {
+    .hero-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .hero-figure canvas {
+      max-width: 24rem;
+    }
+
     .big-numbers {
       grid-template-columns: repeat(2, 1fr);
     }
@@ -952,7 +919,7 @@ const numbers = [
     .ai-grid,
     .two-col,
     .products,
-    .join-panel,
+    .join-grid,
     .principles {
       grid-template-columns: 1fr;
     }
@@ -974,32 +941,8 @@ const numbers = [
       gap: 0.6rem;
     }
 
-    .hero-shade {
-      background: linear-gradient(0deg, rgba(15, 15, 15, 0.95) 10%, rgba(15, 15, 15, 0.5) 70%);
-    }
 
-    .wave {
-      min-height: 16rem;
-    }
 
-    .orbit-stage {
-      --R: min(34vw, 9rem);
-    }
-
-    .glow {
-      width: 5rem;
-      height: 5rem;
-      left: -2.5rem;
-      top: -2.5rem;
-    }
-
-    .orb-label {
-      top: 2.8rem;
-    }
-
-    .orb-label strong {
-      font-size: 0.9rem;
-    }
   }
 
   @media (max-width: 30rem) {
