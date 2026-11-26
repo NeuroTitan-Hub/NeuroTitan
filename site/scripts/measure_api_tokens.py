@@ -1,5 +1,5 @@
 """Count FLORES-200 devtest tokens on tokenizers that are only reachable through an API:
-Anthropic's (Claude) and Google's (Gemini). Both counting endpoints are free to call.
+Anthropic's (Claude), and optionally Google's (Gemini). Anthropic's counting endpoint is free to call.
 
 Usage (PowerShell; the key stays in your own terminal and is never written anywhere):
     $env:ANTHROPIC_API_KEY = "..."   # Anthropic Console key

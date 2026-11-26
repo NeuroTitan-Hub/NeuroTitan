@@ -111,7 +111,7 @@ const total = langs.length - 1;
         </div>
         <p class="lede">
           We count its tokens on OpenAI's two current tokenizers, in your browser. Your text is not sent anywhere.
-          {viaApi.length > 0 && " Claude and Gemini can only be counted on their providers' servers, so they're in the calculator and the table, not here."}
+          {viaApi.length > 0 && " Claude's tokenizer can only be counted on Anthropic's servers, so it's in the calculator and the table, not here."}
         </p>
       </div>
 
@@ -232,16 +232,16 @@ langtax measure prompts.jsonl --spend 2000</code></pre>
         {
           viaApi.length > 0 ? (
             <p>
-              Anthropic and Google don't publish their tokenizers as files, so {viaApi.map((t) => t.label).join(", ")}{" "}
-              {viaApi.length > 1 ? "were" : "was"} counted through their providers' free token-counting APIs, 46 sentences
+              Anthropic doesn't publish its tokenizers as files, so {viaApi.map((t) => t.label).join(" and ")}{" "}
+              {viaApi.length > 1 ? "were" : "was"} counted through Anthropic's free token-counting API, 46 sentences
               per request, with each request's fixed overhead measured and removed. On OpenAI's tokenizer, where we can
               check, this gives the same ratios as counting sentence by sentence, to within 1.3%. Their 95% intervals come
               from resampling the 22 requests, so they are a little wider. These columns are marked <sup>a</sup>.
             </p>
           ) : (
             <p>
-              Tokenizers from Anthropic and Google are not in v0, because they are not published as files. They are next
-              on our list.
+              Anthropic's tokenizers are not in v0, because they are not published as files. They are next on our
+              list.
             </p>
           )
         }

@@ -4,7 +4,7 @@ Usage (from the repo root):
     python -I site/scripts/make_language_index.py PATH/TO/Sentence-cost-in-Electron site/src/data/language-index.json [API_DIR]
 
 API_DIR (optional, default site/scripts/api-tokens) holds counts for tokenizers that are only reachable
-through an API (Claude, Gemini), made by site/scripts/measure_api_tokens.py. A tokenizer in API_TOKENIZERS
+through an API (Claude), made by site/scripts/measure_api_tokens.py. A tokenizer in API_TOKENIZERS
 is included only if its CSV is there. Its ratio is (sum of chunk counts - 22 x overhead) over English's;
 its 95% interval comes from resampling the 22 chunks 2,000 times, paired across languages.
 
@@ -40,7 +40,6 @@ TOKENIZERS = [
 API_TOKENIZERS = [
     ("claude", "Anthropic Claude", "Claude Opus 4.7 and later, Sonnet 5.5, Haiku 5.5", "claude-opus-5-5"),
     ("claude-old", "Anthropic Claude (older)", "Claude Sonnet 4.6, Haiku 4.5 and earlier", "claude-sonnet-4-6"),
-    ("gemini", "Google Gemini", "Gemini 2.5 Flash", "gemini-2.5-flash"),
 ]
 N_BOOT = 2000
 SEED = 20261119
