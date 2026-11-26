@@ -1,7 +1,12 @@
 """Build the Language Cost Index v0 dataset from post 1's published data.
 
 Usage (from the repo root):
-    python -I site/scripts/make_language_index.py PATH/TO/Sentence-cost-in-Electron site/src/data/language-index.json
+    python -I site/scripts/make_language_index.py PATH/TO/Sentence-cost-in-Electron site/src/data/language-index.json [API_DIR]
+
+API_DIR (optional, default site/scripts/api-tokens) holds counts for tokenizers that are only reachable
+through an API (Claude, Gemini), made by site/scripts/measure_api_tokens.py. A tokenizer in API_TOKENIZERS
+is included only if its CSV is there. Its ratio is (sum of chunk counts - 22 x overhead) over English's;
+its 95% interval comes from resampling the 22 chunks 2,000 times, paired across languages.
 
 Inputs, all from https://github.com/NeuroTitan-Hub/Sentence-cost-in-Electron:
     m1/summary.csv                              token ratios to English, 204 languages x 8 tokenizers, 95% bootstrap intervals
@@ -14,6 +19,7 @@ Nothing is computed here except rounding and reshaping. Every number traces to o
 
 import csv
 import json
+import random
 import sys
 from pathlib import Path
 
@@ -29,6 +35,38 @@ TOKENIZERS = [
     ("utf8-bytes", "UTF-8 bytes", "Byte-level models"),
 ]
 
+# Tokenizers counted through their providers' free counting APIs: (id, label, models, CSV stem).
+# Shown right after OpenAI's two.
+API_TOKENIZERS = [
+    ("claude", "Anthropic Claude", "Claude Opus 4.7 and later, Sonnet 5.5, Haiku 5.5", "claude-opus-5-5"),
+    ("claude-old", "Anthropic Claude (older)", "Claude Sonnet 4.6, Haiku 4.5 and earlier", "claude-sonnet-4-6"),
+    ("gemini", "Google Gemini", "Gemini 2.5 Flash", "gemini-2.5-flash"),
+]
+N_BOOT = 2000
+SEED = 20261119
+
+
+def api_ratios(csv_path: Path, cal_path: Path) -> dict[str, list[float]]:
+    overhead = json.loads(cal_path.read_text(encoding="utf-8"))["overhead"]
+    counts: dict[str, dict[int, int]] = {}
+    with csv_path.open(encoding="utf-8", newline="") as f:
+        for row in csv.DictReader(f):
+            counts.setdefault(row["lang"], {})[int(row["chunk"])] = int(row["tokens_raw"]) - overhead
+    n_chunks = len(counts["eng_Latn"])
+    for lang, c in counts.items():
+        if sorted(c) != list(range(n_chunks)):
+            raise SystemExit(f"{csv_path.name}: {lang} has {len(c)} of {n_chunks} chunks; rerun the measurement")
+    eng = [counts["eng_Latn"][i] for i in range(n_chunks)]
+    rng = random.Random(SEED)
+    draws = [[rng.randrange(n_chunks) for _ in range(n_chunks)] for _ in range(N_BOOT)]
+    out = {}
+    for lang, c in counts.items():
+        x = [c[i] for i in range(n_chunks)]
+        boot = sorted(sum(x[i] for i in d) / sum(eng[i] for i in d) for d in draws)
+        out[lang] = [r3(sum(x) / sum(eng)), r3(boot[int(0.025 * N_BOOT)]), r3(boot[int(0.975 * N_BOOT) - 1])]
+    return out
+
+
 # The derived chain configuration shown in the Index: a page (20 sentences) on a shared
 # server (batch of 64), Qwen3-8B on an L40S. Post 1 key result 4 quotes this one (Odia 16.5x).
 CHAIN_KEY = "N20_b64"
@@ -38,7 +76,7 @@ def r3(x: float) -> float:
     return round(float(x), 3)
 
 
-def main(src: Path, out: Path) -> None:
+def main(src: Path, out: Path, api_dir: Path) -> None:
     explorer = json.loads((src / "m6" / "explorer.json").read_text(encoding="utf-8"))
     names = {}
     for line in (Path(__file__).parent / "flores200-names.tsv").read_text(encoding="utf-8").splitlines():
@@ -56,12 +94,24 @@ def main(src: Path, out: Path) -> None:
                 r3(row["ratio_hi95"]),
             ]
 
+    tokenizers = list(TOKENIZERS)
+    api_used = []
+    for tid, label, models, stem in API_TOKENIZERS:
+        csv_path, cal_path = api_dir / f"{stem}.csv", api_dir / f"{stem}.calibration.json"
+        if not csv_path.exists():
+            print(f"skipping {tid}: no {csv_path}")
+            continue
+        for lang, r in api_ratios(csv_path, cal_path).items():
+            ratios.setdefault(lang, {})[tid] = r
+        tokenizers.insert(2 + len(api_used), (tid, label, models))
+        api_used.append(tid)
+
     gpu = {}
     with open(src / "m7-validation" / "run1" / "analysis_ac" / "per_language.csv", newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             gpu[row["lang"]] = r3(row["copy_energy_ratio_total"])
 
-    tok_ids = [t[0] for t in TOKENIZERS]
+    tok_ids = [t[0] for t in tokenizers]
     langs = []
     for code in sorted(ratios, key=lambda c: names[c]):
         r = ratios[code]
@@ -91,7 +141,9 @@ def main(src: Path, out: Path) -> None:
         "built": "2026-11-26",
         "source": "https://github.com/NeuroTitan-Hub/Sentence-cost-in-Electron",
         "text": "FLORES-200 devtest, 1,012 sentences per language, the same meaning in every language",
-        "tokenizers": [{"id": t, "label": l, "models": m} for t, l, m in TOKENIZERS],
+        "tokenizers": [
+            {"id": t, "label": l, "models": m, **({"via": "api"} if t in api_used else {})} for t, l, m in tokenizers
+        ],
         "energy": {
             "es": "Derived: Qwen3-8B on an NVIDIA L40S, a page of 20 sentences on a shared server (batch of 64). A model checked against Deng et al.'s GPU measurements, not a measurement",
             "eg": "Measured: laptop RTX 4060, a 4-bit fine-tune of Qwen3.5-4B, copying 20 sentences, 1 or 2 runs. Noisy; a controlled rerun is planned",
@@ -99,10 +151,12 @@ def main(src: Path, out: Path) -> None:
         "languages": langs,
     }
     out.write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
-    print(f"wrote {out} ({out.stat().st_size:,} bytes, {len(langs)} languages, {sum(1 for l in langs if l['eg'])} with GPU energy)")
+    print(f"wrote {out} ({out.stat().st_size:,} bytes, {len(langs)} languages, {len(tokenizers)} tokenizers"
+          f" ({', '.join(api_used) or 'no API tokenizers'}), {sum(1 for l in langs if l['eg'])} with GPU energy)")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (3, 4):
         raise SystemExit(__doc__)
-    main(Path(sys.argv[1]), Path(sys.argv[2]))
+    default_api = Path(__file__).parent / "api-tokens"
+    main(Path(sys.argv[1]), Path(sys.argv[2]), Path(sys.argv[3]) if len(sys.argv) == 4 else default_api)

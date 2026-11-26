@@ -5,7 +5,8 @@ import index from "../data/language-index.json";
 
 type Lang = (typeof index.languages)[number];
 
-const toks = index.tokenizers;
+const toks = index.tokenizers as { id: string; label: string; models: string; via?: string }[];
+const viaApi = toks.filter((t) => t.via === "api");
 const langs = index.languages as Lang[];
 const fmt = (x: number) => x.toFixed(2);
 const heat = (x: number) => (x >= 4 ? "h4" : x >= 2 ? "h2" : x >= 1.5 ? "h1" : "h0");
@@ -110,6 +111,7 @@ const total = langs.length - 1;
         </div>
         <p class="lede">
           We count its tokens on OpenAI's two current tokenizers, in your browser. Your text is not sent anywhere.
+          {viaApi.length > 0 && " Claude and Gemini can only be counted on their providers' servers, so they're in the calculator and the table, not here."}
         </p>
       </div>
 
@@ -167,6 +169,7 @@ langtax measure prompts.jsonl --spend 2000</code></pre>
                 toks.map((t, i) => (
                   <th data-sort={`r${i}`} scope="col" class="num" title={t.models}>
                     {t.label}
+                    {t.via === "api" && <sup>a</sup>}
                   </th>
                 ))
               }
@@ -199,6 +202,11 @@ langtax measure prompts.jsonl --spend 2000</code></pre>
         </table>
       </div>
       <p class="note muted">
+        {viaApi.length > 0 && (
+          <>
+            <sup>a</sup> Counted through the provider's token-counting API (see How we measured).{" "}
+          </>
+        )}
         <sup>d</sup> {index.energy.es}. <sup>m</sup> {index.energy.eg}. Shading: 1.5× or more, 2× or more, 4× or more.
       </p>
       <p class="links">
@@ -221,10 +229,24 @@ langtax measure prompts.jsonl --spend 2000</code></pre>
           language through each tokenizer and divided its token count by English's. A ratio of 2 means the same meaning
           costs twice the tokens. The 95% intervals come from resampling the sentences 2,000 times.
         </p>
+        {
+          viaApi.length > 0 ? (
+            <p>
+              Anthropic and Google don't publish their tokenizers as files, so {viaApi.map((t) => t.label).join(", ")}{" "}
+              {viaApi.length > 1 ? "were" : "was"} counted through their providers' free token-counting APIs, 46 sentences
+              per request, with each request's fixed overhead measured and removed. On OpenAI's tokenizer, where we can
+              check, this gives the same ratios as counting sentence by sentence, to within 1.3%. Their 95% intervals come
+              from resampling the 22 requests, so they are a little wider. These columns are marked <sup>a</sup>.
+            </p>
+          ) : (
+            <p>
+              Tokenizers from Anthropic and Google are not in v0, because they are not published as files. They are next
+              on our list.
+            </p>
+          )
+        }
         <p>
-          Tokenizers from Anthropic and Google are not in v0, because they are not published as files. They are next on
-          our list. So are a dated price table, so the Index can show cost in dollars per model, and more open
-          tokenizers.
+          Also next: a dated price table, so the Index can show cost in dollars per model, and more open tokenizers.
         </p>
         <p>
           The method, the checks and what is wrong with it are in our first post,
